@@ -1,0 +1,22 @@
+from typing import Optional 
+from sqlalchemy import String, Date
+from datetime import date
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.db.database import Base
+
+
+class Patient(Base):
+    __tablename__ = "patients"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patient_number: Mapped[str] = mapped_column(String(20), index=True, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200),nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    dob: Mapped[date] = mapped_column (Date, nullable=False)
+    aadhaar: Mapped[Optional[str]] = mapped_column(String(20), nullable=True,  unique=True)
+    gender: Mapped[str] = mapped_column(String(10), nullable=False)
+    address: Mapped[str] = mapped_column(String(300), nullable=False)
+    chief_complaint: Mapped[str] = mapped_column(String(300), nullable=False)
+
+
+    def __repr__(self):
+        return f"Patient(patient_number={self.patient_number!r}, name={self.name!r}) "

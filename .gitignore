@@ -1,0 +1,14 @@
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# PyInstaller
+alembic.ini
+
