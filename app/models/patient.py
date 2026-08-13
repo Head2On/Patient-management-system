@@ -16,7 +16,7 @@ class Patient(Base):
     gender: Mapped[str] = mapped_column(String(10), nullable=False)
     address: Mapped[str] = mapped_column(String(300), nullable=False)
     chief_complaint: Mapped[str] = mapped_column(String(300), nullable=False)
-
+    is_active: Mapped[bool] = mapped_column(default=True)
 
     def __repr__(self):
         return f"Patient(patient_number={self.patient_number!r}, name={self.name!r}) "

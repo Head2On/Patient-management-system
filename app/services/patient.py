@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.models.patient import Patient
-from app.schemas.patient import PatientCreate, PatientResponse
+from app.schemas.patient import PatientCreate, PatientResponse,PatientUpdate
 
 def register_patient(db: Session, patient_data: PatientCreate):
 
@@ -29,3 +29,40 @@ def register_patient(db: Session, patient_data: PatientCreate):
     db.refresh(db_patient)
     
     return PatientResponse.model_validate(db_patient)
+
+#view specific patient by there Id 
+def get_patient_by_id(db: Session, patient_id: int):
+    return db.query(Patient).filter(Patient.id == patient_id, Patient.is_active==True).first ()
+
+# Viwe all patients
+def get_all_patients(db: Session, offset: int = 0, limit: int = 10):
+    return db.query(Patient)\
+        .filter(Patient.is_active == True)\
+        .offset(offset)\
+        .limit(limit)\
+        .all()
+
+# update patient
+def updated_patient_by_number(db: Session, patient_number: str, patient_data: PatientUpdate):
+    patient = db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first()
+    if not patient:
+        return None
+    update_data = patient_data.model_dump(exclude_unset=True)
+    for key , value in update_data.items():
+        setattr(patient, key, value)
+
+    db.commit()
+    db.refresh(patient)
+
+    return patient
+
+#delete patient by there Id
+def soft_delete_patient(db: Session, patient_number:str):
+    patient = db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first()
+    if not patient:
+        return None
+    patient.is_active = False
+    db.commit()
+    db.refresh(patient)
+    return patient
+
