@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.db.database import get_db 
 from app.schemas.patient import PatientCreate, PatientResponse, PatientUpdate, PatientDeleteResponse, PaginationParams
@@ -38,10 +38,15 @@ def get_patient(patient_id: int, db: Session = Depends(get_db)):
 @router.get("/patients", response_model=List[PatientResponse])
 def list_all_patients(
     db: Session = Depends(get_db), 
-    pagination: PaginationParams = Depends()
+    pagination: PaginationParams = Depends(),
+    search: Optional[str] = None
 ):
     offset = (pagination.page - 1) * pagination.limit
-    patients = get_all_patients(db, offset=offset, limit=pagination.limit)
+    patients = get_all_patients(
+        db, offset=offset,
+        limit=pagination.limit,
+        search=search
+    )
     return patients
 
 @router.patch("/patients/{patient_number}", response_model=PatientResponse)

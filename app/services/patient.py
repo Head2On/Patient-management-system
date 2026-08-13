@@ -1,6 +1,7 @@
 # app/services/patient.py
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from typing import Optional
 from app.models.patient import Patient
 from app.schemas.patient import PatientCreate, PatientResponse,PatientUpdate
 
@@ -35,12 +36,17 @@ def get_patient_by_id(db: Session, patient_id: int):
     return db.query(Patient).filter(Patient.id == patient_id, Patient.is_active==True).first ()
 
 # Viwe all patients
-def get_all_patients(db: Session, offset: int = 0, limit: int = 10):
-    return db.query(Patient)\
-        .filter(Patient.is_active == True)\
-        .offset(offset)\
-        .limit(limit)\
-        .all()
+def get_all_patients(db: Session, offset: int = 0, limit: int = 10, search: Optional[str] = None):
+    query =  db.query(Patient).filter(Patient.is_active == True)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Patient.patient_number.ilike(search_term)) |
+            (Patient.name.ilike(search_term))|
+            (Patient.phone.ilike(search_term))
+        )
+    return query.offset(offset).limit(limit).all()
 
 # update patient
 def updated_patient_by_number(db: Session, patient_number: str, patient_data: PatientUpdate):
