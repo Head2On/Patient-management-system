@@ -9,53 +9,44 @@ from app.main import app
 from app.db.database import get_db, Base
 from app.core.config import settings
 
-
 SQLALCHEMY_DATABASE_URL = settings.test_database_url
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
 @pytest.fixture(scope="session", autouse=True)
 def apply_migrations():
-    
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
     yield
     command.downgrade(alembic_cfg, "base")
 
-
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def db_session():
-
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
-
-
-    for table in reversed(Base.metadata.sorted_tables):
-        connection.execute(table.delete())
-    yield session
-    
-    session.close()
-    transaction.rollback()
-    connection.close()
-
-
-def override_get_db():
+    # Create session
     db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-
+    
+    # Clean all tables
+    for table in reversed(Base.metadata.sorted_tables):
+        db.execute(table.delete())
+    db.commit()
+    
+    # Override dependency
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    yield db
+    
+    db.close()
+    app.dependency_overrides.pop(get_db, None)
 
 @pytest.fixture
 def client():
     return TestClient(app)
-
 
 @pytest.fixture
 def sample_patient_data():

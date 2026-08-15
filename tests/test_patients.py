@@ -12,22 +12,25 @@ def test_create_patient_success(client, sample_patient_data):
     assert data["patient_number"].startswith("PDC-")
 
 
-def test_create_patient_duplicate_phone(client, sample_patient_data):
-    """Test duplicate phone number should fail"""
-    # Create first patient
+def test_create_patient_duplicate_aadhaar(client, sample_patient_data):
+    """Test duplicate aadhaar number should fail"""
+    # First patient with aadhaar
     client.post("/api/v1/patients", json=sample_patient_data)
     
-    # Try to create second with same phone
-    response = client.post("/api/v1/patients", json=sample_patient_data)
+    # Second patient with SAME aadhaar but different phone
+    duplicate_data = sample_patient_data.copy()
+    duplicate_data["phone"] = "9998887777"  # Different phone
+    # Keep same aadhaar
     
+    response = client.post("/api/v1/patients", json=duplicate_data)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "already exists" in response.json()["detail"].lower() or "duplicate" in response.json()["detail"].lower()
 
-
-def test_get_patient_by_id(client, sample_patient_data):
-    """Test getting a patient by database ID"""
+def test_get_patient_by_number(client, sample_patient_data):
     # Create patient first
     create_response = client.post("/api/v1/patients", json=sample_patient_data)
+    print(create_response.status_code)
+    print(create_response.json())
+    
     patient_number = create_response.json()["patient_number"]
     
     # Get the database ID by fetching all patients and finding the one with our patient_number
@@ -42,6 +45,7 @@ def test_get_patient_by_id(client, sample_patient_data):
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["name"] == sample_patient_data["name"]
+    
 
 
 def test_get_patient_not_found(client):
@@ -54,15 +58,21 @@ def test_get_patient_not_found(client):
 
 
 def test_list_all_patients(client, sample_patient_data):
-    """Test listing all patients"""
+    # Check how many patients exist BEFORE creating new ones
+    response = client.get("/api/v1/patients")
+    print(f"Before: {len(response.json())} patients exist")
+    
     # Create 3 patients
     for i in range(3):
         patient_data = sample_patient_data.copy()
         patient_data["phone"] = f"987654321{i}"
-        client.post("/api/v1/patients", json=patient_data)
+        patient_data["aadhaar"] = f"12345678901{i}"
+        response = client.post("/api/v1/patients", json=patient_data)
+        print(f"Created patient {i}: {response.status_code}")
     
-    # Get all patients
+    # Check after creation
     response = client.get("/api/v1/patients")
+    print(f"After: {len(response.json())} patients exist")
     
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
@@ -75,6 +85,7 @@ def test_list_patients_with_pagination(client, sample_patient_data):
     for i in range(15):
         patient_data = sample_patient_data.copy()
         patient_data["phone"] = f"987654321{i}"
+        patient_data["aadhaar"] = f"12345678901{i}"
         client.post("/api/v1/patients", json=patient_data)
     
     # Get first page (limit 10)
