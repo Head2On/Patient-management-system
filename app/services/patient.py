@@ -2,6 +2,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Optional
+from sqlalchemy.exc import IntegrityError
 from app.models.patient import Patient
 from app.schemas.patient import PatientCreate, PatientResponse,PatientUpdate
 
@@ -22,18 +23,21 @@ def register_patient(db: Session, patient_data: PatientCreate):
         chief_complaint=patient_data.chief_complaint,
         aadhaar=patient_data.aadhaar
     )
-    
-    db.add(db_patient)
-    
-    db.commit()
-    
-    db.refresh(db_patient)
-    
-    return PatientResponse.model_validate(db_patient)
+    try: 
+        db.add(db_patient)
+        db.commit()
+        db.refresh(db_patient)
+        return PatientResponse.model_validate(db_patient)
+    except IntegrityError as e:
+        db.rollback()
+        raise ValueError("Duplicate entry") 
+    except Exception as e:
+        db.rollback()
+        raise RuntimeError(f"Database error: {str(e)}")
 
-#view specific patient by there Id 
-def get_patient_by_id(db: Session, patient_id: int):
-    return db.query(Patient).filter(Patient.id == patient_id, Patient.is_active==True).first ()
+#view specific patient by there number
+def get_patient_by_number(db: Session, patient_number: str):
+    return db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first ()
 
 # Viwe all patients
 def get_all_patients(db: Session, offset: int = 0, limit: int = 10, search: Optional[str] = None):
@@ -50,25 +54,60 @@ def get_all_patients(db: Session, offset: int = 0, limit: int = 10, search: Opti
 
 # update patient
 def updated_patient_by_number(db: Session, patient_number: str, patient_data: PatientUpdate):
-    patient = db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first()
-    if not patient:
-        return None
-    update_data = patient_data.model_dump(exclude_unset=True)
-    for key , value in update_data.items():
-        setattr(patient, key, value)
 
-    db.commit()
-    db.refresh(patient)
+    try: 
+        patient = db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first()
+        if not patient:
+            return None
+        update_data = patient_data.model_dump(exclude_unset=True)
+        for key , value in update_data.items():
+            setattr(patient, key, value)
 
-    return patient
+        db.commit()
+        db.refresh(patient)
+        return patient
+    except IntegrityError as e:
+        db.rollback()
+        raise ValueError("Duplicate entry")  
+    except Exception as e:
+        db.rollback()
+        raise RuntimeError(f"Database error: {str(e)}")  
+    
 
-#delete patient by there Id
+#delete patient by there number
 def soft_delete_patient(db: Session, patient_number:str):
-    patient = db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first()
-    if not patient:
-        return None
-    patient.is_active = False
-    db.commit()
-    db.refresh(patient)
-    return patient
 
+    try: 
+        patient = db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first()
+        if not patient:
+            return None
+        patient.is_active = False
+        db.commit()
+        db.refresh(patient)
+        return patient
+
+    except IntegrityError as e:
+        db.rollback()
+        raise ValueError("Duplicate entry")
+    except Exception as e:
+        db.rollback()
+        raise RuntimeError(f"Database error: {str(e)}")
+
+#reactive patient by there Id
+def reactivate_patient(db: Session, patient_number: str):
+    try:
+        patient = db.query(Patient).filter(
+            Patient.patient_number == patient_number,
+            Patient.is_active == False
+        ).first()
+
+        if not patient:
+            return None
+        patient.is_active = True
+        db.commit()
+        db.refresh(patient)
+        return patient
+
+    except Exception as e:
+        db.rollback()
+        raise RuntimeError(f"Failed to reactivate patient: {str(e)}")

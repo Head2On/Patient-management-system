@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_version:str
     debug:bool 
     database_url:str
+    test_database_url:str
     secret_key: str
 
 

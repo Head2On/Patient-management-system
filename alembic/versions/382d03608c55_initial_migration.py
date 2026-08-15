@@ -1,8 +1,8 @@
-"""create patients table
+"""initial_migration
 
-Revision ID: 5de240d1e3d4
+Revision ID: 382d03608c55
 Revises: 
-Create Date: 2026-08-10 23:26:41.364356
+Create Date: 2026-08-15 12:52:33.744333
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '5de240d1e3d4'
+revision: str = '382d03608c55'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -31,6 +31,7 @@ def upgrade() -> None:
     sa.Column('gender', sa.String(length=10), nullable=False),
     sa.Column('address', sa.String(length=300), nullable=False),
     sa.Column('chief_complaint', sa.String(length=300), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('aadhaar')
     )
