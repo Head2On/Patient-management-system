@@ -20,6 +20,7 @@ class PatientResponse(BaseModel):
     gender: str
     address: str
     chief_complaint: str
+    is_active:bool
     
 
     model_config = ConfigDict(from_attributes=True)
