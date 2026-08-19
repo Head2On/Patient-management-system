@@ -1,8 +1,11 @@
-from typing import Optional 
+from __future__ import annotations
+
+from typing import Optional ,List
 from sqlalchemy import String, Date
 from datetime import date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
+from app.models.appointment import Appointment
 
 
 class Patient(Base):
@@ -17,6 +20,9 @@ class Patient(Base):
     address: Mapped[str] = mapped_column(String(300), nullable=False)
     chief_complaint: Mapped[str] = mapped_column(String(300), nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
+
+
+    appointments: Mapped[List["Appointment"]] = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"Patient(patient_number={self.patient_number!r}, name={self.name!r}) "
