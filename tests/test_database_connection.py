@@ -10,11 +10,11 @@ def test_connection():
             
             print("✅ Database connection successful!")
             print(f"✅ Query returned: {value}")
-            return True
+            assert True
             
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
-        return False
+        assert False
 
 if __name__ == "__main__":
     test_connection()

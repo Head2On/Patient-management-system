@@ -116,6 +116,8 @@ def test_update_patient_success(client, sample_patient_data):
     """Test updating a patient"""
     # Create patient
     create_response = client.post("/api/v1/patients", json=sample_patient_data)
+    print("Status Code:", create_response.status_code)
+    print("Response JSON:", create_response.json())
     patient_number = create_response.json()["patient_number"]
     
     # Update patient

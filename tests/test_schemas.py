@@ -1,5 +1,5 @@
 from app.schemas.patient import *
-from datetime import date 
+from datetime import date, datetime, timezone
 
 data = { 
     "name": "John Doe",
@@ -13,7 +13,7 @@ data = {
 patient = PatientCreate(**data)
 print("PatientCreate:", patient)
 
-response_data ={ 
+response_data = {
     "patient_number": "P001",
     "name": "John Doe",
     "phone": "9876543210",
@@ -21,7 +21,8 @@ response_data ={
     "gender": "Male",
     "address": "123 Main St",
     "chief_complaint": "Fever",
-    
+    "is_active":True  
 }
+
 response = PatientResponse(**response_data)
 print("\n PatientResponse:", response)

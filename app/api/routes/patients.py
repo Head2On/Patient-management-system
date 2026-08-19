@@ -9,10 +9,10 @@ from app.services.patient import register_patient, get_patient_by_number, get_al
 
 
 
-router = APIRouter()
+patients_router = APIRouter()
 
-@router.post(
-    "/patients",response_model=PatientResponse, 
+@patients_router.post(
+    "/",response_model=PatientResponse, 
     status_code=status.HTTP_201_CREATED 
 )
 def create_patient(patient_data: PatientCreate, db: Session = Depends(get_db)):
@@ -30,14 +30,14 @@ def create_patient(patient_data: PatientCreate, db: Session = Depends(get_db)):
     
     
 
-@router.get("/patients/{patient_number}")
+@patients_router.get("/{patient_number}")
 def get_patient(patient_number: str, db: Session = Depends(get_db)):
     patient = get_patient_by_number(db, patient_number)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
     return patient   
 
-@router.get("/patients", response_model=List[PatientResponse])
+@patients_router.get("/", response_model=List[PatientResponse])
 def list_all_patients(
     db: Session = Depends(get_db), 
     pagination: PaginationParams = Depends(),
@@ -51,7 +51,7 @@ def list_all_patients(
     )
     return patients
 
-@router.patch("/patients/{patient_number}", response_model=PatientResponse)
+@patients_router.patch("/{patient_number}", response_model=PatientResponse)
 def update_patient(patient_number: str, patient_data: PatientUpdate, db: Session = Depends(get_db)):
     try:
         patient = updated_patient_by_number(db, patient_number, patient_data)
@@ -68,7 +68,7 @@ def update_patient(patient_number: str, patient_data: PatientUpdate, db: Session
         raise HTTPException(500, detail="An error when updating the patient")
 
 
-@router.delete("/patients/{patient_number}" ,response_model=PatientDeleteResponse, status_code=status.HTTP_200_OK)
+@patients_router.delete("/{patient_number}" ,response_model=PatientDeleteResponse, status_code=status.HTTP_200_OK)
 def delete_patient_soft(patient_number: str, db: Session = Depends(get_db)):
     try : 
         patient = soft_delete_patient(db, patient_number)
@@ -88,7 +88,7 @@ def delete_patient_soft(patient_number: str, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(500, detail="An error while deactivating the patient")
 
-@router.patch("/patients/{patient_number}/reactivate", response_model=PatientResponse)
+@patients_router.patch("/{patient_number}/reactivate", response_model=PatientResponse)
 def reactivate_patient_route(patient_number: str, db: Session = Depends(get_db)):  
     try:
         patient = reactivate_patient(db, patient_number)  

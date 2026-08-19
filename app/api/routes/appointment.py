@@ -7,10 +7,10 @@ from app.db.database import get_db
 from app.schemas.appointment import AppointmentCreate, AppointmentResponse
 from app.services.appointment import AppointmentServices, AppointmentStatus,AppointmentUpdate 
 
-router = APIRouter()
+appointments_router = APIRouter()
 
 #Create appointments
-@router.post(
+@appointments_router.post(
     "/",
     response_model=AppointmentResponse,
     status_code=status.HTTP_201_CREATED,
@@ -49,7 +49,7 @@ def create_appointment(
             )
 
 #For specific appointment
-@router.get(
+@appointments_router.get(
     "/{appointment_id}",
     response_model=AppointmentResponse,
     summary="Get appointment by ID"
@@ -70,7 +70,7 @@ def get_appointment(
     return appointment
 
 #For specific appointments with patient_id
-@router.get(
+@appointments_router.get(
     "/patient/{patient_id}/appointments",
     response_model=List[AppointmentResponse],
     summary="Get all appointments for a patient"
@@ -85,7 +85,7 @@ def get_patient_appointments(
     return appointments
 
 #For all appointments 
-@router.get(
+@appointments_router.get(
     "/",
     response_model=List[AppointmentResponse],
     summary="Get all appointment"
@@ -100,7 +100,7 @@ def get_all_appointment(
     return appointments 
 
 
-@router.patch(
+@appointments_router.patch(
     "/{appointment_id}",
     response_model=AppointmentResponse,
     summary="Upadate an appointment"
