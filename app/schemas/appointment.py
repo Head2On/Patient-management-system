@@ -1,11 +1,12 @@
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from app.models.appointment import AppointmentStatus  # Import the Enum
-
+from app.models.appointment import AppointmentStatus
+from app.schemas.provider import ProviderPublicResponse
 
 class AppointmentBase(BaseModel):
     patient_id: int  
+    provider_id: str
     start_time: datetime
     end_time: datetime
     reason_for_visit: str = Field(max_length=300)
@@ -29,10 +30,18 @@ class AppointmentCreate(AppointmentBase):
             raise ValueError('start time cannot be in past')
         return v
 
+    @field_validator('provider_id')
+    @classmethod
+    def validate_provider_id_positive(cls, v: str) -> str:
+        if not v or len(v) < 3:
+            raise ValueError('provider_id must be vlaid doc-number')
+        return v
+
 
 class AppointmentUpdate(BaseModel):
    
-    status: Optional[AppointmentStatus] = None  
+    status: Optional[AppointmentStatus] = None
+    provider_id: Optional[str] = None  
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     reason_for_visit: Optional[str] = Field(None, max_length=300)   
@@ -49,6 +58,7 @@ class AppointmentResponse(BaseModel):
 
     id: int
     patient_id: int  
+    provider: ProviderPublicResponse 
     start_time: datetime
     end_time: datetime
     status: AppointmentStatus 
@@ -57,7 +67,7 @@ class AppointmentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(
+    model_config = ConfigDict(  
         from_attributes=True,
         str_strip_whitespace=True
     )

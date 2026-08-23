@@ -1,13 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Optional, List
+from fastapi import APIRouter
 from sqlalchemy.orm import Session
 from datetime import timedelta, timezone, datetime
-from app.db.database import get_db
 from app.models.patient import Patient,Appointment
 from fastapi.testclient import TestClient
-from app.schemas.appointment import AppointmentCreate, AppointmentResponse
-from app.services.appointment import AppointmentServices
 from app.models.appointment import AppointmentStatus
+
+
+
 
 router = APIRouter()  # ← This should exist
 
@@ -15,7 +14,7 @@ router = APIRouter()  # ← This should exist
 class TestAppointmentAPI:
     """Tests for Appointment API endpoints"""
     
-    def test_create_appointment_success(self, client: TestClient, db_session: Session):
+    def test_create_appointment_success(self, client: TestClient, db_session: Session, sample_provider):
         """Test: POST /api/v1/appointments/ → 201 Created"""
         # 1. Create a patient first
         patient = Patient(
@@ -32,13 +31,15 @@ class TestAppointmentAPI:
         db_session.add(patient)
         db_session.commit()
         db_session.refresh(patient)
-        
+                
+            
         # 2. Prepare appointment data
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
         end_time = start_time + timedelta(hours=1)
         
         appointment_data = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "reason_for_visit": "Annual checkup",
@@ -53,6 +54,7 @@ class TestAppointmentAPI:
         data = response.json()
         assert data["id"] is not None
         assert data["patient_id"] == patient.id
+        assert data["provider"]["doc_number"] == sample_provider.doc_number
         assert datetime.fromisoformat(data["start_time"]) == start_time
         assert datetime.fromisoformat(data["end_time"]) == end_time 
         assert data["status"] == AppointmentStatus.SCHEDULED.value
@@ -61,13 +63,15 @@ class TestAppointmentAPI:
         assert data["created_at"] is not None
         assert data["updated_at"] is not None
     
-    def test_create_appointment_patient_not_found(self, client: TestClient):
+    def test_create_appointment_patient_not_found(self, client: TestClient, sample_provider):
         """Test: POST /api/v1/appointments/ with non-existent patient → 404"""
+
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
         end_time = start_time + timedelta(hours=1)
         
         appointment_data = {
             "patient_id": 99999,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "reason_for_visit": "Annual checkup",
@@ -79,8 +83,9 @@ class TestAppointmentAPI:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
     
-    def test_create_appointment_inactive_patient(self, client: TestClient, db_session: Session):
+    def test_create_appointment_inactive_patient(self, client: TestClient, db_session: Session, sample_provider):
         """Test: POST /api/v1/appointments/ with inactive patient → 404"""
+
         # 1. Create inactive patient
         patient = Patient(
             patient_number="PDC-000002",
@@ -103,6 +108,7 @@ class TestAppointmentAPI:
         
         appointment_data = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "reason_for_visit": "Annual checkup",
@@ -115,8 +121,9 @@ class TestAppointmentAPI:
         assert response.status_code == 404
         assert "inactive" in response.json()["detail"].lower()
     
-    def test_create_appointment_overlapping_time(self, client: TestClient, db_session: Session):
+    def test_create_appointment_overlapping_time(self, client: TestClient, db_session: Session, sample_provider):
         """Test: POST /api/v1/appointments/ with overlapping time → 409"""
+
         # 1. Create patient
         patient = Patient(
             patient_number="PDC-000003",
@@ -139,6 +146,7 @@ class TestAppointmentAPI:
         
         appointment_data_1 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "reason_for_visit": "First appointment",
@@ -154,6 +162,7 @@ class TestAppointmentAPI:
         
         appointment_data_2 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time_2.isoformat(),
             "end_time": end_time_2.isoformat(),
             "reason_for_visit": "Overlapping appointment",
@@ -166,8 +175,9 @@ class TestAppointmentAPI:
         assert "already has an appointment" in response2.json()["detail"].lower()
 
 
-    def test_get_appointment_by_id_success(self, client: TestClient, db_session: Session):
+    def test_get_appointment_by_id_success(self, client: TestClient, db_session: Session, sample_provider):
             """Test: GET /api/v1/appointments/{id} → 200 OK"""
+
             # 1. Create a patient
             patient = Patient(
                 patient_number="PDC-000004",
@@ -190,6 +200,7 @@ class TestAppointmentAPI:
             
             appointment_data = {
                 "patient_id": patient.id,
+                "provider_id": sample_provider.doc_number,
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "reason_for_visit": "Annual checkup",
@@ -215,14 +226,16 @@ class TestAppointmentAPI:
         
     def test_get_appointment_by_id_not_found(self, client: TestClient):
         """Test: GET /api/v1/appointments/{id} with non-existent ID → 404"""
+
         response = client.get("/api/v1/appointments/99999")
             
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
 
-    def test_get_patient_appointments_success(self, client: TestClient, db_session: Session):
+    def test_get_patient_appointments_success(self, client: TestClient, db_session: Session, sample_provider):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments → 200 with appointments"""
+
         # 1. Create a patient
         patient = Patient(
             patient_number="PDC-000005",
@@ -245,6 +258,7 @@ class TestAppointmentAPI:
         
         appointment_data_1 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time_1.isoformat(),
             "end_time": end_time_1.isoformat(),
             "reason_for_visit": "First appointment",
@@ -259,6 +273,7 @@ class TestAppointmentAPI:
         
         appointment_data_2 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time_2.isoformat(),
             "end_time": end_time_2.isoformat(),
             "reason_for_visit": "Second appointment",
@@ -279,6 +294,9 @@ class TestAppointmentAPI:
         assert data[1]["reason_for_visit"] == "Second appointment"
         assert data[0]["patient_id"] == patient.id
         assert data[1]["patient_id"] == patient.id
+        assert data[0]["provider"]["doc_number"] == sample_provider.doc_number
+        assert data[1]["provider"]["doc_number"] == sample_provider.doc_number
+
 
     def test_get_patient_appointments_empty(self, client: TestClient, db_session: Session):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments → 200 with empty list"""
@@ -306,8 +324,9 @@ class TestAppointmentAPI:
         data = response.json()
         assert data == []
 
-    def test_get_patient_appointments_with_status_filter(self, client: TestClient, db_session: Session):
+    def test_get_patient_appointments_with_status_filter(self, client: TestClient, db_session: Session, sample_provider):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments?status=confirmed → 200 filtered"""
+
         # 1. Create a patient
         patient = Patient(
             patient_number="PDC-000007",
@@ -330,6 +349,7 @@ class TestAppointmentAPI:
         
         appointment_data_1 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time_1.isoformat(),
             "end_time": end_time_1.isoformat(),
             "reason_for_visit": "Scheduled appointment",
@@ -345,6 +365,7 @@ class TestAppointmentAPI:
         
         appointment_data_2 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time_2.isoformat(),
             "end_time": end_time_2.isoformat(),
             "reason_for_visit": "Confirmed appointment",
@@ -414,7 +435,7 @@ class TestAppointmentAPI:
         assert data == []
 
 
-    def test_get_all_appointments_success(self, client: TestClient, db_session: Session):
+    def test_get_all_appointments_success(self, client: TestClient, db_session: Session, sample_provider):
         """Test: GET /api/v1/appointments/ → 200 with appointments"""
         # 1. Create a patient
         patient = Patient(
@@ -439,6 +460,7 @@ class TestAppointmentAPI:
             
             appointment_data = {
                 "patient_id": patient.id,
+                "provider_id": sample_provider.doc_number,
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "reason_for_visit": f"Appointment {i+1}",
@@ -467,8 +489,9 @@ class TestAppointmentAPI:
         data = response.json()
         assert data == []
 
-    def test_get_all_appointments_pagination(self, client: TestClient, db_session: Session):
+    def test_get_all_appointments_pagination(self, client: TestClient, db_session: Session, sample_provider):
         """Test: GET /api/v1/appointments/?skip=0&limit=2 → pagination works"""
+
         # 1. Create a patient
         patient = Patient(
             patient_number="PDC-000010",
@@ -492,6 +515,7 @@ class TestAppointmentAPI:
             
             appointment_data = {
                 "patient_id": patient.id,
+                "provider_id": sample_provider.doc_number,
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "reason_for_visit": f"Appointment {i+1}",
@@ -527,8 +551,9 @@ class TestAppointmentAPI:
         assert len(data) == 1
         assert data[0]["reason_for_visit"] == "Appointment 5"
 
-    def test_get_all_appointments_limit(self, client: TestClient, db_session: Session):
+    def test_get_all_appointments_limit(self, client: TestClient, db_session: Session, sample_provider):
         """Test: GET /api/v1/appointments/?limit=3 → respects limit"""
+
         # 1. Create a patient
         patient = Patient(
             patient_number="PDC-000011",
@@ -552,6 +577,7 @@ class TestAppointmentAPI:
             
             appointment_data = {
                 "patient_id": patient.id,
+                "provider_id": sample_provider.doc_number,
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "reason_for_visit": f"Appointment {i+1}",
@@ -571,7 +597,7 @@ class TestAppointmentAPI:
         assert data[1]["reason_for_visit"] == "Appointment 2"
         assert data[2]["reason_for_visit"] == "Appointment 3"
 
-    def test_get_all_appointments_multiple_patients(self, client: TestClient, db_session: Session):
+    def test_get_all_appointments_multiple_patients(self, client: TestClient, db_session: Session, sample_provider):
         """Test: GET /api/v1/appointments/ returns appointments from multiple patients"""
         # 1. Create two patients
         patient1 = Patient(
@@ -612,6 +638,7 @@ class TestAppointmentAPI:
             
             appointment_data = {
                 "patient_id": patient1.id,
+                "provider_id": sample_provider.doc_number,
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "reason_for_visit": f"Patient1 App {i+1}",
@@ -628,6 +655,7 @@ class TestAppointmentAPI:
             
             appointment_data = {
                 "patient_id": patient2.id,
+                "provider_id": sample_provider.doc_number,
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "reason_for_visit": f"Patient2 App {i+1}",
@@ -651,7 +679,7 @@ class TestAppointmentAPI:
         assert len(patient1_apps) == 2
         assert len(patient2_apps) == 3
 
-    def test_update_appointment_success(self, client: TestClient, db_session: Session):
+    def test_update_appointment_success(self, client: TestClient, db_session: Session, sample_provider):
         """Test: PATCH /api/v1/appointments/{id} → 200 OK"""
         # 1. Create a patient
         patient = Patient(
@@ -675,6 +703,7 @@ class TestAppointmentAPI:
         
         appointment_data = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "reason_for_visit": "Original visit",
@@ -709,7 +738,7 @@ class TestAppointmentAPI:
         assert data["internal_notes"] == "Updated notes"
         assert data["status"] == "scheduled"
 
-    def test_update_appointment_status(self, client: TestClient, db_session: Session):
+    def test_update_appointment_status(self, client: TestClient, db_session: Session, sample_provider):
         """Test: PATCH /api/v1/appointments/{id} update status → 200 OK"""
         # 1. Create a patient
         patient = Patient(
@@ -733,6 +762,7 @@ class TestAppointmentAPI:
         
         appointment_data = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "reason_for_visit": "Annual checkup",
@@ -768,7 +798,7 @@ class TestAppointmentAPI:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    def test_update_appointment_invalid_status_transition(self, client: TestClient, db_session: Session):
+    def test_update_appointment_invalid_status_transition(self, client: TestClient, db_session: Session, sample_provider):
         """Test: PATCH /api/v1/appointments/{id} with invalid status transition → 400"""
         # 1. Create a patient
         patient = Patient(
@@ -792,6 +822,7 @@ class TestAppointmentAPI:
         
         appointment_data = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "reason_for_visit": "Annual checkup",
@@ -810,8 +841,9 @@ class TestAppointmentAPI:
         assert response.status_code == 400
         assert "invalid status transition" in response.json()["detail"].lower()
 
-    def test_update_appointment_overlapping_time(self, client: TestClient, db_session: Session):
+    def test_update_appointment_overlapping_time(self, client: TestClient, db_session: Session, sample_provider):
         """Test: PATCH /api/v1/appointments/{id} with overlapping time → 409"""
+
         # 1. Create a patient
         patient = Patient(
             patient_number="PDC-000017",
@@ -834,6 +866,7 @@ class TestAppointmentAPI:
         
         appointment_data_1 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
             "start_time": start_time_1.isoformat(),
             "end_time": end_time_1.isoformat(),
             "reason_for_visit": "First appointment",
@@ -850,6 +883,7 @@ class TestAppointmentAPI:
         
         appointment_data_2 = {
             "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number, 
             "start_time": start_time_2.isoformat(),
             "end_time": end_time_2.isoformat(),
             "reason_for_visit": "Second appointment",

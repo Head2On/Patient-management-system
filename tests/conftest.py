@@ -1,5 +1,3 @@
-import os
-os.environ["ALEMBIC_ENV"] = "test"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -27,6 +25,7 @@ def apply_migrations():
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
     yield
+    # ✅ Keep downgrade - this drops all tables
     command.downgrade(alembic_cfg, "base")
 
 @pytest.fixture(autouse=True)
@@ -34,7 +33,7 @@ def db_session():
     # Create session
     db = TestingSessionLocal()
     
-    # Clean all tables
+    # ✅ Clear all table data BEFORE each test
     for table in reversed(Base.metadata.sorted_tables):
         db.execute(table.delete())
     db.commit()
@@ -50,6 +49,7 @@ def db_session():
     
     yield db
     
+    db.rollback()  # ✅ Rollback any uncommitted changes
     db.close()
     app.dependency_overrides.pop(get_db, None)
 
@@ -109,3 +109,22 @@ def sample_appointment_data(sample_patient):
 def appointment_service(db_session):
     """Return AppointmentService instance"""
     return AppointmentServices(db_session)
+
+
+@pytest.fixture
+def sample_provider(db_session):
+    """Create a sample active provider for testing"""
+    from app.models.provider import Provider
+    provider = Provider(
+        doc_number="JD9876",
+        name="Dr. John Doe",
+        specialization="Cardiology",
+        phone="9876543210",
+        email="john@hospital.com",
+        post="MD",
+        is_active=True
+    )
+    db_session.add(provider)
+    db_session.commit()
+    db_session.refresh(provider)
+    return provider

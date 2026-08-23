@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional,List
 from datetime import datetime, timezone
 from enum import Enum
 from sqlalchemy import String, DateTime, ForeignKey, Text
@@ -26,6 +26,10 @@ class Appointment(Base):
         ForeignKey("patients.id", ondelete="RESTRICT"), 
         nullable=False
     )
+    provider_id: Mapped[int] = mapped_column(
+        ForeignKey("providers.id"), 
+        nullable=False, index=True
+    )
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(
@@ -49,6 +53,7 @@ class Appointment(Base):
 
 
     patient: Mapped["Patient"] = relationship(back_populates="appointments")
+    provider: Mapped["Provider"] = relationship("Provider", back_populates="appointments")
 
     def __repr__(self):
         return f"Appointment(id={self.id!r}, patient_id={self.patient_id!r}, status={self.status!r}, start_time={self.start_time!r})"

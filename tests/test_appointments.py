@@ -1,7 +1,5 @@
 import pytest
 from datetime import datetime, timedelta, timezone
-from sqlalchemy.orm import Session
-
 from app.services.appointment import AppointmentServices
 from app.models.patient import Patient
 from app.models.appointment import Appointment, AppointmentStatus
@@ -11,24 +9,39 @@ from app.schemas.appointment import AppointmentCreate, AppointmentUpdate
 class TestAppointmentCreate:
     """Tests for creating appointments"""
     
-    def test_create_appointment_success(self, db_session, sample_patient, sample_appointment_data):
+    def test_create_appointment_success(self, db_session, sample_patient, sample_provider):
         """Test #1: Valid active patient → appointment created successfully"""
+
+        start_time = datetime.now(timezone.utc) + timedelta(days=1)
+        end_time = start_time + timedelta(hours=1)
+
+        appointment_data = AppointmentCreate(
+        patient_id=sample_patient.id,
+        provider_id=sample_provider.doc_number,  
+        start_time=start_time,
+        end_time=end_time,
+        reason_for_visit="Annual checkup",
+        internal_notes="Patient is new"
+    )
         service = AppointmentServices(db_session)
-        appointment = service.create_appointment(sample_appointment_data)
+        appointment = service.create_appointment(appointment_data)
         
         assert appointment.id is not None
         assert appointment.patient_id == sample_patient.id
+        assert appointment.provider_id == sample_provider.id
         assert appointment.status == AppointmentStatus.SCHEDULED.value
         assert appointment.created_at is not None
         assert appointment.updated_at is not None
     
-    def test_create_appointment_nonexistent_patient(self, db_session):
+    def test_create_appointment_nonexistent_patient(self, db_session, sample_provider):
         """Test #2: Nonexistent patient → rejected"""
+
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
         end_time = start_time + timedelta(hours=1)
         
         appointment_data = AppointmentCreate(
             patient_id=99999,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -42,8 +55,9 @@ class TestAppointmentCreate:
         
         assert "Patient with id 99999 not found" in str(exc_info.value)
     
-    def test_create_appointment_inactive_patient(self, db_session):
+    def test_create_appointment_inactive_patient(self, db_session, sample_provider):
         """Test #3: Inactive patient → rejected"""
+
         inactive_patient = Patient(
             patient_number="PDC-000002",
             name="Inactive Patient",
@@ -64,6 +78,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=inactive_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -77,14 +92,16 @@ class TestAppointmentCreate:
         
         assert f"Patient with id {inactive_patient.id} is inactive" in str(exc_info.value)
     
-    def test_create_appointment_overlapping_time(self, db_session, sample_patient):
+    def test_create_appointment_overlapping_time(self, db_session, sample_patient, sample_provider):
         """Test #4: Same patient + overlapping time → rejected"""
+
         # 1. Create first appointment
         start_time_1 = datetime.now(timezone.utc) + timedelta(days=1)
         end_time_1 = start_time_1 + timedelta(hours=2)
         
         appointment_data_1 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_1,
             end_time=end_time_1,
             reason_for_visit="First appointment",
@@ -100,6 +117,7 @@ class TestAppointmentCreate:
         
         appointment_data_2 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_2,
             end_time=end_time_2,
             reason_for_visit="Overlapping appointment",
@@ -112,14 +130,16 @@ class TestAppointmentCreate:
         
         assert "Patient already has an appointment in this time slot" in str(exc_info.value)
     
-    def test_create_appointment_adjacent_time(self, db_session, sample_patient):
+    def test_create_appointment_adjacent_time(self, db_session, sample_patient, sample_provider):
         """Test #5: Same patient + adjacent time → allowed"""
+
         # 1. Create first appointment (10:00 - 11:00)
         start_time_1 = datetime.now(timezone.utc) + timedelta(days=1)
         end_time_1 = start_time_1 + timedelta(hours=1)
         
         appointment_data_1 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_1,
             end_time=end_time_1,
             reason_for_visit="First appointment",
@@ -135,6 +155,7 @@ class TestAppointmentCreate:
         
         appointment_data_2 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_2,
             end_time=end_time_2,
             reason_for_visit="Adjacent appointment",
@@ -146,19 +167,22 @@ class TestAppointmentCreate:
         
         assert appointment_2.id is not None
         assert appointment_2.patient_id == sample_patient.id
+        assert appointment_2.provider_id == sample_provider.id
         assert appointment_2.start_time == start_time_2
         assert appointment_2.end_time == end_time_2
         assert appointment_2.status == AppointmentStatus.SCHEDULED.value
 
 
-    def test_create_appointment_cancelled_overlap_allowed(self, db_session, sample_patient):
+    def test_create_appointment_cancelled_overlap_allowed(self, db_session, sample_patient, sample_provider):
         """Test #6: Existing cancelled appointment + same time → allowed"""
+
         # 1. Create first appointment
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
         end_time = start_time + timedelta(hours=1)
         
         appointment_data_1 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="First appointment",
@@ -176,6 +200,7 @@ class TestAppointmentCreate:
         # 3. Try to create new appointment at same time
         appointment_data_2 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="New appointment after cancellation",
@@ -187,19 +212,22 @@ class TestAppointmentCreate:
         
         assert appointment_2.id is not None
         assert appointment_2.patient_id == sample_patient.id
+        assert appointment_2.provider_id == sample_provider.id
         assert appointment_2.start_time == start_time
         assert appointment_2.end_time == end_time
         assert appointment_2.status == AppointmentStatus.SCHEDULED.value
         assert appointment_2.id != appointment_1.id
 
-    def test_create_appointment_completed_overlap_allowed(self, db_session, sample_patient):
+    def test_create_appointment_completed_overlap_allowed(self, db_session, sample_patient, sample_provider):
         """Test #7: Existing completed appointment + same time → allowed"""
+
         # 1. Create first appointment
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
         end_time = start_time + timedelta(hours=1)
         
         appointment_data_1 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="First appointment",
@@ -217,6 +245,7 @@ class TestAppointmentCreate:
         # 3. Try to create new appointment at same time
         appointment_data_2 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="New appointment after completion",
@@ -233,14 +262,16 @@ class TestAppointmentCreate:
         assert appointment_2.status == AppointmentStatus.SCHEDULED.value
         assert appointment_2.id != appointment_1.id
 
-    def test_create_appointment_status_defaults_to_scheduled(self, db_session, sample_patient):
+    def test_create_appointment_status_defaults_to_scheduled(self, db_session, sample_patient, sample_provider):
         """Test #8: New appointment starts as scheduled"""
+
         # 1. Create appointment data
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
         end_time = start_time + timedelta(hours=1)
             
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -259,14 +290,16 @@ class TestAppointmentCreate:
         assert db_appointment.status == AppointmentStatus.SCHEDULED.value
 
     
-    def test_get_appointment_by_id_success(self, db_session, sample_patient):
+    def test_get_appointment_by_id_success(self, db_session, sample_patient, sample_provider):
         """Test: Get existing appointment by ID"""
+
         # 1. Create an appointment
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
         end_time = start_time + timedelta(hours=1)
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -283,6 +316,7 @@ class TestAppointmentCreate:
         assert retrieved_appointment is not None
         assert retrieved_appointment.id == created_appointment.id
         assert retrieved_appointment.patient_id == sample_patient.id
+        assert retrieved_appointment.provider_id == sample_provider.id
         assert retrieved_appointment.start_time == start_time
         assert retrieved_appointment.end_time == end_time
         assert retrieved_appointment.status == AppointmentStatus.SCHEDULED.value
@@ -296,16 +330,19 @@ class TestAppointmentCreate:
         
         assert appointment is None
 
-    def test_get_patient_appointments_success(self, db_session, sample_patient):
+    def test_get_patient_appointments_success(self, db_session, sample_patient, sample_provider):
         """Test: Get all appointments for a patient"""
+
         # 1. Create multiple appointments
         service = AppointmentServices(db_session)
         
         # Appointment 1: Today + 1 day
         start_time_1 = datetime.now(timezone.utc) + timedelta(days=1)
         end_time_1 = start_time_1 + timedelta(hours=1)
+
         appointment_data_1 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_1,
             end_time=end_time_1,
             reason_for_visit="First appointment",
@@ -316,8 +353,10 @@ class TestAppointmentCreate:
         # Appointment 2: Today + 2 days
         start_time_2 = datetime.now(timezone.utc) + timedelta(days=2)
         end_time_2 = start_time_2 + timedelta(hours=1)
+
         appointment_data_2 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_2,
             end_time=end_time_2,
             reason_for_visit="Second appointment",
@@ -334,9 +373,13 @@ class TestAppointmentCreate:
         assert appointments[1].id == appointment_2.id
         assert appointments[0].patient_id == sample_patient.id
         assert appointments[1].patient_id == sample_patient.id
+        assert appointments[0].provider_id == sample_provider.id
+        assert appointments[1].provider_id == sample_provider.id
+
     
-    def test_get_patient_appointments_with_status_filter(self, db_session, sample_patient):
+    def test_get_patient_appointments_with_status_filter(self, db_session, sample_patient, sample_provider):
         """Test: Get patient appointments filtered by status"""
+
         # 1. Create appointments with different statuses
         service = AppointmentServices(db_session)
         
@@ -345,6 +388,7 @@ class TestAppointmentCreate:
         end_time_1 = start_time_1 + timedelta(hours=1)
         appointment_data_1 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_1,
             end_time=end_time_1,
             reason_for_visit="Scheduled appointment",
@@ -355,8 +399,10 @@ class TestAppointmentCreate:
         # Appointment 2: Completed
         start_time_2 = datetime.now(timezone.utc) + timedelta(days=2)
         end_time_2 = start_time_2 + timedelta(hours=1)
+
         appointment_data_2 = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time_2,
             end_time=end_time_2,
             reason_for_visit="Completed appointment",
@@ -375,6 +421,7 @@ class TestAppointmentCreate:
         # 3. Assertions
         assert len(appointments) == 1
         assert appointments[0].id == appointment_1.id
+        assert appointments[0].provider_id == appointment_1.provider_id
         assert appointments[0].status == AppointmentStatus.SCHEDULED.value
         
         # 4. Get only COMPLETED appointments
@@ -385,10 +432,12 @@ class TestAppointmentCreate:
         
         assert len(appointments) == 1
         assert appointments[0].id == appointment_2.id
+        assert appointments[0].provider_id == appointment_2.provider_id
         assert appointments[0].status == AppointmentStatus.COMPLETED.value
     
     def test_get_patient_appointments_empty(self, db_session, sample_patient):
         """Test: Patient with no appointments returns empty list"""
+
         service = AppointmentServices(db_session)
         appointments = service.get_patient_appointments(sample_patient.id)
         
@@ -425,8 +474,9 @@ class TestAppointmentCreate:
         
         assert appointments == [] 
 
-    def test_get_all_appointments_success(self, db_session, sample_patient):
+    def test_get_all_appointments_success(self, db_session, sample_patient, sample_provider):
         """Test: Get all appointments with default pagination"""
+
         # 1. Create multiple appointments
         service = AppointmentServices(db_session)
         
@@ -436,6 +486,7 @@ class TestAppointmentCreate:
             end_time = start_time + timedelta(hours=1)
             appointment_data = AppointmentCreate(
                 patient_id=sample_patient.id,
+                provider_id=sample_provider.doc_number,
                 start_time=start_time,
                 end_time=end_time,
                 reason_for_visit=f"Appointment {i+1}",
@@ -452,8 +503,9 @@ class TestAppointmentCreate:
         assert appointments[1].reason_for_visit == "Appointment 2"
         assert appointments[2].reason_for_visit == "Appointment 3"
     
-    def test_get_all_appointments_pagination(self, db_session, sample_patient):
+    def test_get_all_appointments_pagination(self, db_session, sample_patient, sample_provider):
         """Test: Get all appointments with pagination"""
+
         # 1. Create 5 appointments
         service = AppointmentServices(db_session)
         
@@ -462,6 +514,7 @@ class TestAppointmentCreate:
             end_time = start_time + timedelta(hours=1)
             appointment_data = AppointmentCreate(
                 patient_id=sample_patient.id,
+                provider_id=sample_provider.doc_number,
                 start_time=start_time,
                 end_time=end_time,
                 reason_for_visit=f"Appointment {i+1}",
@@ -496,8 +549,9 @@ class TestAppointmentCreate:
         
         assert appointments == []
     
-    def test_get_all_appointments_with_limit(self, db_session, sample_patient):
+    def test_get_all_appointments_with_limit(self, db_session, sample_patient, sample_provider):
         """Test: Limit results to specific number"""
+
         # 1. Create 10 appointments
         service = AppointmentServices(db_session)
         
@@ -506,6 +560,7 @@ class TestAppointmentCreate:
             end_time = start_time + timedelta(hours=1)
             appointment_data = AppointmentCreate(
                 patient_id=sample_patient.id,
+                provider_id=sample_provider.doc_number,
                 start_time=start_time,
                 end_time=end_time,
                 reason_for_visit=f"Appointment {i+1}",
@@ -520,8 +575,9 @@ class TestAppointmentCreate:
         assert appointments[0].reason_for_visit == "Appointment 1"
         assert appointments[4].reason_for_visit == "Appointment 5"
     
-    def test_get_all_appointments_multiple_patients(self, db_session):
+    def test_get_all_appointments_multiple_patients(self, db_session, sample_provider):
         """Test: Get appointments from multiple patients"""
+
         # 1. Create two patients
         patient1 = Patient(
             patient_number="PDC-000001",
@@ -562,6 +618,7 @@ class TestAppointmentCreate:
             end_time = start_time + timedelta(hours=1)
             appointment_data = AppointmentCreate(
                 patient_id=patient1.id,
+                provider_id=sample_provider.doc_number,
                 start_time=start_time,
                 end_time=end_time,
                 reason_for_visit=f"Patient1 App {i+1}",
@@ -575,6 +632,7 @@ class TestAppointmentCreate:
             end_time = start_time + timedelta(hours=1)
             appointment_data = AppointmentCreate(
                 patient_id=patient2.id,
+                provider_id=sample_provider.doc_number,
                 start_time=start_time,
                 end_time=end_time,
                 reason_for_visit=f"Patient2 App {i+1}",
@@ -593,7 +651,7 @@ class TestAppointmentCreate:
         assert len(patient1_apps) == 2
         assert len(patient2_apps) == 3
 
-    def test_update_appointment_status_scheduled_to_confirmed(self, db_session, sample_patient):
+    def test_update_appointment_status_scheduled_to_confirmed(self, db_session, sample_patient, sample_provider):
         """Test: scheduled → confirmed (allowed)"""
         service = AppointmentServices(db_session)
         
@@ -602,6 +660,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -615,7 +674,7 @@ class TestAppointmentCreate:
         
         assert updated.status == AppointmentStatus.CONFIRMED.value
 
-    def test_update_appointment_status_confirmed_to_checked_in(self, db_session, sample_patient):
+    def test_update_appointment_status_confirmed_to_checked_in(self, db_session, sample_patient,sample_provider):
         """Test: confirmed → checked_in (allowed)"""
         service = AppointmentServices(db_session)
         
@@ -624,6 +683,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -641,7 +701,7 @@ class TestAppointmentCreate:
         
         assert updated.status == AppointmentStatus.CHECKED_IN.value
 
-    def test_update_appointment_status_checked_in_to_in_progress(self, db_session, sample_patient):
+    def test_update_appointment_status_checked_in_to_in_progress(self, db_session, sample_patient, sample_provider):
         """Test: checked_in → in_progress (allowed)"""
         service = AppointmentServices(db_session)
         
@@ -650,6 +710,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -667,7 +728,7 @@ class TestAppointmentCreate:
         
         assert updated.status == AppointmentStatus.IN_PROGRESS.value
 
-    def test_update_appointment_status_in_progress_to_completed(self, db_session, sample_patient):
+    def test_update_appointment_status_in_progress_to_completed(self, db_session, sample_patient, sample_provider):
         """Test: in_progress → completed (allowed)"""
         service = AppointmentServices(db_session)
         
@@ -676,6 +737,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -694,7 +756,7 @@ class TestAppointmentCreate:
         
         assert updated.status == AppointmentStatus.COMPLETED.value
 
-    def test_update_appointment_status_completed_to_scheduled_blocked(self, db_session, sample_patient):
+    def test_update_appointment_status_completed_to_scheduled_blocked(self, db_session, sample_patient, sample_provider):
         """Test: completed → scheduled (blocked)"""
         service = AppointmentServices(db_session)
         
@@ -703,6 +765,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -726,7 +789,7 @@ class TestAppointmentCreate:
         assert "completed" in str(exc_info.value)
         assert "scheduled" in str(exc_info.value)
 
-    def test_update_appointment_status_cancelled_to_anything_blocked(self, db_session, sample_patient):
+    def test_update_appointment_status_cancelled_to_anything_blocked(self, db_session, sample_patient, sample_provider):
         """Test: cancelled → anything (blocked)"""
         service = AppointmentServices(db_session)
         
@@ -735,6 +798,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -754,7 +818,7 @@ class TestAppointmentCreate:
         assert "Invalid status transition" in str(exc_info.value)
         assert "cancelled" in str(exc_info.value)
 
-    def test_update_appointment_status_scheduled_to_cancelled_allowed(self, db_session, sample_patient):
+    def test_update_appointment_status_scheduled_to_cancelled_allowed(self, db_session, sample_patient, sample_provider):
         """Test: scheduled → cancelled (allowed)"""
         service = AppointmentServices(db_session)
         
@@ -763,6 +827,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
@@ -776,8 +841,9 @@ class TestAppointmentCreate:
         
         assert updated.status == AppointmentStatus.CANCELLED.value
 
-    def test_update_appointment_status_same_status_allowed(self, db_session, sample_patient):
+    def test_update_appointment_status_same_status_allowed(self, db_session, sample_patient, sample_provider):
         """Test: same status update is allowed (no change)"""
+
         service = AppointmentServices(db_session)
         
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
@@ -785,6 +851,7 @@ class TestAppointmentCreate:
         
         appointment_data = AppointmentCreate(
             patient_id=sample_patient.id,
+            provider_id=sample_provider.doc_number,
             start_time=start_time,
             end_time=end_time,
             reason_for_visit="Annual checkup",
