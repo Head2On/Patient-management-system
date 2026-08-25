@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-
+from typing import Optional,List
 from app.models.provider import Provider
 from app.schemas.provider import ProviderCreate
 
@@ -24,6 +24,7 @@ class ProviderServices:
         return f"{name_initial}{last_four}"
     
     def create_provider(self, provider_data: ProviderCreate) -> Provider:
+
         """Create a new provider"""
         
         # 1. Generate doc_number from name + phone
@@ -81,3 +82,22 @@ class ProviderServices:
         except SQLAlchemyError as e:
             self.db.rollback()
             raise ValueError(f"Database error: {str(e)}")
+
+    def get_provider_by_doc_number(self, doc_number: str) -> Optional[Provider]:
+        
+        if not doc_number:
+            return None
+
+        clean_doc_number = doc_number.strip()
+
+        return  self.db.query(Provider).filter(
+            Provider.doc_number == clean_doc_number
+        ).first()
+
+    def get_all_providers(self, skip: int = 0, limit = 100) -> List[Provider]:
+
+        return self.db.query(Provider)\
+            .order_by(Provider.doc_number)\
+            .offset(skip)\
+            .limit(limit)\
+            .all()
