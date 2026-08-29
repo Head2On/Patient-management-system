@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import Optional,List
 from app.models.provider import Provider
-from app.schemas.provider import ProviderCreate
+from app.schemas.provider import ProviderCreate,ProviderUpdate
 
 
 class ProviderServices:
@@ -14,7 +14,10 @@ class ProviderServices:
       
         # Get first letter of name (uppercase)
         word = name.strip().split()
-        name_initial = "".join([word[0] for word in word if word]).upper()
+
+        filtered_words = [w for w in word if w.lower() not in ("dr.", "dr")]
+
+        name_initial = "".join([w[0] for w in filtered_words if w]).upper()
         
         # Get last 4 digits of phone
         # Remove any non-digit characters first
@@ -94,10 +97,107 @@ class ProviderServices:
             Provider.doc_number == clean_doc_number
         ).first()
 
-    def get_all_providers(self, skip: int = 0, limit = 100) -> List[Provider]:
+    def get_all_providers(self, skip: int = 0, limit: int  = 100) -> List[Provider]:
 
         return self.db.query(Provider)\
             .order_by(Provider.doc_number)\
             .offset(skip)\
             .limit(limit)\
             .all()
+
+    def update_provider(self, doc_number: str, update_data: ProviderUpdate) -> Provider:
+       
+        # 1. Find provider
+        provider = self.get_provider_by_doc_number(doc_number)
+        if not provider:
+            raise ValueError(f"Provider with doc_number '{doc_number}' not found")
+        
+        # 2. Check phone uniqueness if phone is being updated
+        if update_data.phone is not None and update_data.phone != provider.phone:
+            existing_phone = self.db.query(Provider).filter(
+                Provider.phone == update_data.phone,
+                Provider.id != provider.id  # Exclude current provider
+            ).first()
+            if existing_phone:
+                raise ValueError(f"Phone number '{update_data.phone}' is already registered")
+        
+        # 3. Apply updates (only fields that are provided)
+        if update_data.name is not None:
+            provider.name = update_data.name
+        
+        if update_data.specialization is not None:
+            provider.specialization = update_data.specialization
+        
+        if update_data.phone is not None:
+            provider.phone = update_data.phone
+        
+        if update_data.email is not None:
+            provider.email = update_data.email
+        
+        if update_data.post is not None:
+            provider.post = update_data.post.value  # Enum to string
+        
+        # 4. Save to database
+        try:
+            self.db.commit()
+            self.db.refresh(provider)
+            return provider
+            
+        except IntegrityError as e:
+            self.db.rollback()
+            error_msg = str(e)
+            if "phone" in error_msg.lower():
+                raise ValueError(f"Phone number '{update_data.phone}' is already registered")
+            raise ValueError(f"Database integrity error: {error_msg}")
+            
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise ValueError(f"Database error: {str(e)}")
+ 
+    def deactivate_provider(self, doc_number: str) -> Provider:
+       
+        # 1. Find provider
+        provider = self.get_provider_by_doc_number(doc_number)
+        if not provider:
+            raise ValueError(f"Provider with doc_number '{doc_number}' not found")
+        
+        # 2. Check if already inactive
+        if not provider.is_active:
+            raise ValueError(f"Provider with doc_number '{doc_number}' is already inactive")
+        
+        # 3. Deactivate
+        provider.is_active = False
+        
+        # 4. Save
+        try:
+            self.db.commit()
+            self.db.refresh(provider)
+            return provider
+            
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise ValueError(f"Database error: {str(e)}")
+    
+    def reactivate_provider(self, doc_number: str) -> Provider:
+        
+        # 1. Find provider
+        provider = self.get_provider_by_doc_number(doc_number)
+        if not provider:
+            raise ValueError(f"Provider with doc_number '{doc_number}' not found")
+        
+        # 2. Check if already active
+        if provider.is_active:
+            raise ValueError(f"Provider with doc_number '{doc_number}' is already active")
+        
+        # 3. Reactivate
+        provider.is_active = True
+        
+        # 4. Save
+        try:
+            self.db.commit()
+            self.db.refresh(provider)
+            return provider
+            
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise ValueError(f"Database error: {str(e)}")

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from app.models.patient import Patient
 from app.schemas.appointment import AppointmentCreate
 from app.services.appointment import AppointmentServices
+from app.models.provider import Provider 
 
 
 SQLALCHEMY_DATABASE_URL = settings.test_database_url
@@ -93,12 +94,13 @@ def sample_patient(db_session):
     return patient
 
 @pytest.fixture
-def sample_appointment_data(sample_patient):
+def sample_appointment_data(sample_patient, sample_provider):
     """Create sample appointment data"""
     start_time = datetime.now(timezone.utc) + timedelta(days=1)
     end_time = start_time + timedelta(hours=1)
     return AppointmentCreate(
         patient_id=sample_patient.id,
+        provider_id=sample_provider.doc_number,
         start_time=start_time,
         end_time=end_time,
         reason_for_visit="Annual checkup",
@@ -114,10 +116,10 @@ def appointment_service(db_session):
 @pytest.fixture
 def sample_provider(db_session):
     """Create a sample active provider for testing"""
-    from app.models.provider import Provider
+
     provider = Provider(
         doc_number="JD9876",
-        name="Dr. John Doe",
+        name="John Doe",
         specialization="Cardiology",
         phone="9876543210",
         email="john@hospital.com",
@@ -128,3 +130,5 @@ def sample_provider(db_session):
     db_session.commit()
     db_session.refresh(provider)
     return provider
+
+

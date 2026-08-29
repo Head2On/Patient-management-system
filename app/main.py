@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from app.api.routes.patients import patients_router
 from app.api.routes.appointment import appointments_router
+from app.api.routes.provider import providers_router
+
 
 app = FastAPI(
     title="Patient Management System",
@@ -8,10 +10,8 @@ app = FastAPI(
 )
 
 app.include_router(patients_router, prefix="/api/v1/patients", tags=["patients"])
-app.include_router(appointments_router,
-    prefix="/api/v1/appointments",
-    tags=["appointments"]
-)
+app.include_router(appointments_router,prefix="/api/v1/appointments",tags=["appointments"])
+app.include_router(providers_router,prefix="/api/v1/providers",tags=["providers"])
 
 @app.get("/")
 def read_root():
