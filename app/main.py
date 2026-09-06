@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.api.routes.patients import patients_router
 from app.api.routes.appointment import appointments_router
 from app.api.routes.provider import providers_router
+from app.api.routes.user import users_router
 
 
 app = FastAPI(
@@ -12,6 +13,7 @@ app = FastAPI(
 app.include_router(patients_router, prefix="/api/v1/patients", tags=["patients"])
 app.include_router(appointments_router,prefix="/api/v1/appointments",tags=["appointments"])
 app.include_router(providers_router,prefix="/api/v1/providers",tags=["providers"])
+app.include_router(users_router,prefix="/api/v1/users",tags=["users"])
 
 @app.get("/")
 def read_root():

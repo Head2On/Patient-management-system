@@ -6,6 +6,7 @@ from sqlalchemy import String, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 from app.models.appointment import Appointment
+from app.models.user import User
 
 class PostType(enum.Enum):
     MD = "MD"
@@ -23,6 +24,7 @@ class Provider(Base):
     is_active: Mapped[bool] = mapped_column(default=True, index=True)
 
     appointments: Mapped[List["Appointment"]] = relationship( "Appointment",back_populates="provider" )
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="provider", uselist=False)
     def __repr__(self):
         return f"Provider(id={self.id!r}, doc_number={self.doc_number!r}, name={self.name!r}, is_active={self.is_active!r})"
 
