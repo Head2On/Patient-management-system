@@ -5,6 +5,11 @@ from app.db.database import get_db
 from app.services.provider import ProviderServices
 from app.schemas.provider import ProviderCreate, ProviderResponse, ProviderUpdate
 
+from app.models.user import User
+from app.core.security import (
+    get_current_admin_user,
+    get_current_user
+)
 providers_router = APIRouter()
 
 
@@ -16,19 +21,19 @@ providers_router = APIRouter()
 )
 def create_provider(
     provider_data: ProviderCreate,
+    current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     service = ProviderServices(db)
     
     try:
-        provider = service.create_provider(provider_data)
+        provider = service.create_provider(provider_data, actor=current_user)
         return provider
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-
 
 @providers_router.get(
     "/",
@@ -38,6 +43,7 @@ def create_provider(
 def get_all_providers(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     
@@ -52,6 +58,7 @@ def get_all_providers(
 )
 def get_provider_by_doc_number(
     doc_number: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     
@@ -74,12 +81,13 @@ def get_provider_by_doc_number(
 def update_provider(
     doc_number: str,
     update_data: ProviderUpdate,
+    current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     service = ProviderServices(db)
     
     try:
-        provider = service.update_provider(doc_number, update_data)
+        provider = service.update_provider(doc_number, update_data, actor=current_user)
         return provider
     except ValueError as e:
         error_msg = str(e)
@@ -100,12 +108,13 @@ def update_provider(
 )
 def deactivate_provider(
     doc_number: str,
+    current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     service = ProviderServices(db)
     
     try:
-        provider = service.deactivate_provider(doc_number)
+        provider = service.deactivate_provider(doc_number, actor=current_user)
         return provider
     except ValueError as e:
         error_msg = str(e)
@@ -127,12 +136,13 @@ def deactivate_provider(
 )
 def reactivate_provider(
     doc_number: str,
+    current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     service = ProviderServices(db)
     
     try:
-        provider = service.reactivate_provider(doc_number)
+        provider = service.reactivate_provider(doc_number, actor=current_user)
         return provider
     except ValueError as e:
         error_msg = str(e)

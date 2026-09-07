@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from typing import Optional,List
-from sqlalchemy import String, Enum
+from sqlalchemy import String, Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 from app.models.appointment import Appointment
@@ -22,9 +22,17 @@ class Provider(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     post: Mapped[PostType] = mapped_column(Enum(PostType),nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, index=True)
-
+    created_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    updated_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    
     appointments: Mapped[List["Appointment"]] = relationship( "Appointment",back_populates="provider" )
-    user: Mapped[Optional["User"]] = relationship("User", back_populates="provider", uselist=False)
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="provider", uselist=False, foreign_keys="User.provider_id")
     def __repr__(self):
         return f"Provider(id={self.id!r}, doc_number={self.doc_number!r}, name={self.name!r}, is_active={self.is_active!r})"
 

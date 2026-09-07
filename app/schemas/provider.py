@@ -38,6 +38,8 @@ class ProviderResponse(BaseModel):
     email: Optional[EmailStr]
     post: PostType
     is_active: bool
+    created_by_id: Optional[int] = None
+    updated_by_id: Optional[int] = None
 
 class ProviderPublicResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

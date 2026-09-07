@@ -13,8 +13,8 @@ router = APIRouter()  # ← This should exist
 
 class TestAppointmentAPI:
     """Tests for Appointment API endpoints"""
-    
-    def test_create_appointment_success(self, client: TestClient, db_session: Session, sample_provider):
+
+    def test_create_appointment_success(self, client: TestClient, db_session: Session, sample_provider, auth_headers, admin_user):
         """Test: POST /api/v1/appointments/ → 201 Created"""
         # 1. Create a patient first
         patient = Patient(
@@ -47,7 +47,7 @@ class TestAppointmentAPI:
         }
         
         # 3. Make API request
-        response = client.post("/api/v1/appointments/", json=appointment_data)
+        response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
         
         # 4. Assertions
         assert response.status_code == 201
@@ -58,12 +58,14 @@ class TestAppointmentAPI:
         assert datetime.fromisoformat(data["start_time"]) == start_time
         assert datetime.fromisoformat(data["end_time"]) == end_time 
         assert data["status"] == AppointmentStatus.SCHEDULED.value
+        assert data["created_by_id"] == admin_user.id
+        assert data["updated_by_id"] == admin_user.id
         assert data["reason_for_visit"] == "Annual checkup"
         assert data["internal_notes"] == "Patient is new"
         assert data["created_at"] is not None
         assert data["updated_at"] is not None
     
-    def test_create_appointment_patient_not_found(self, client: TestClient, sample_provider):
+    def test_create_appointment_patient_not_found(self, client: TestClient, sample_provider, auth_headers):
         """Test: POST /api/v1/appointments/ with non-existent patient → 404"""
 
         start_time = datetime.now(timezone.utc) + timedelta(days=1)
@@ -78,12 +80,12 @@ class TestAppointmentAPI:
             "internal_notes": "Patient is new"
         }
         
-        response = client.post("/api/v1/appointments/", json=appointment_data)
+        response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
         
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
     
-    def test_create_appointment_inactive_patient(self, client: TestClient, db_session: Session, sample_provider):
+    def test_create_appointment_inactive_patient(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: POST /api/v1/appointments/ with inactive patient → 404"""
 
         # 1. Create inactive patient
@@ -116,12 +118,12 @@ class TestAppointmentAPI:
         }
         
         # 3. Make API request
-        response = client.post("/api/v1/appointments/", json=appointment_data)
+        response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
         
         assert response.status_code == 404
         assert "inactive" in response.json()["detail"].lower()
     
-    def test_create_appointment_overlapping_time(self, client: TestClient, db_session: Session, sample_provider):
+    def test_create_appointment_overlapping_time(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: POST /api/v1/appointments/ with overlapping time → 409"""
 
         # 1. Create patient
@@ -153,7 +155,7 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response1 = client.post("/api/v1/appointments/", json=appointment_data_1)
+        response1 = client.post("/api/v1/appointments/", json=appointment_data_1, headers=auth_headers)
         assert response1.status_code == 201
         
         # 3. Try to create overlapping appointment
@@ -169,71 +171,124 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response2 = client.post("/api/v1/appointments/", json=appointment_data_2)
+        response2 = client.post("/api/v1/appointments/", json=appointment_data_2, headers=auth_headers)
         
         assert response2.status_code == 409
         assert "already has an appointment" in response2.json()["detail"].lower()
 
+    def test_unauthenticated_cannot_create_appointment(self, client: TestClient, sample_provider):
+        """Security: Anonymous request is rejected with 401"""
+        response = client.post("/api/v1/appointments/", json={})
+        assert response.status_code == 401
 
-    def test_get_appointment_by_id_success(self, client: TestClient, db_session: Session, sample_provider):
-            """Test: GET /api/v1/appointments/{id} → 200 OK"""
+    def test_doctor_cannot_create_appointment(self, client: TestClient, sample_provider, sample_patient, doctor_auth_headers):
+        """Security: Doctor role cannot schedule appointments (403 Forbidden)"""
+        start_time = datetime.now(timezone.utc) + timedelta(days=1)
+        appointment_data = {
+            "patient_id": sample_patient.id,
+            "provider_id": sample_provider.doc_number,
+            "start_time": start_time.isoformat(),
+            "end_time": (start_time + timedelta(hours=1)).isoformat(),
+            "reason_for_visit": "Checkup",
+        }
+        response = client.post("/api/v1/appointments/", json=appointment_data, headers=doctor_auth_headers)
+        assert response.status_code == 403
+        assert "Not enough permissions" in response.json()["detail"]
 
-            # 1. Create a patient
-            patient = Patient(
-                patient_number="PDC-000004",
-                name="Test Patient",
-                phone="1111111111",
-                dob=datetime.now().date() - timedelta(days=365*25),
-                aadhaar="111111111111",
-                gender="Male",
-                address="123 Test Street",
-                chief_complaint="Test",
-                is_active=True
-            )
-            db_session.add(patient)
-            db_session.commit()
-            db_session.refresh(patient)
-            
-            # 2. Create an appointment
-            start_time = datetime.now(timezone.utc) + timedelta(days=1)
-            end_time = start_time + timedelta(hours=1)
-            
-            appointment_data = {
-                "patient_id": patient.id,
-                "provider_id": sample_provider.doc_number,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-                "reason_for_visit": "Annual checkup",
-                "internal_notes": "Test notes"
-            }
-            
-            create_response = client.post("/api/v1/appointments/", json=appointment_data)
-            assert create_response.status_code == 201
-            created_appointment = create_response.json()
-            appointment_id = created_appointment["id"]
-            
-            # 3. Get the appointment by ID
-            get_response = client.get(f"/api/v1/appointments/{appointment_id}")
-            
-            # 4. Assertions
-            assert get_response.status_code == 200
-            data = get_response.json()
-            assert data["id"] == appointment_id
-            assert data["patient_id"] == patient.id
-            assert data["reason_for_visit"] == "Annual checkup"
-            assert data["internal_notes"] == "Test notes"
-            assert data["status"] == AppointmentStatus.SCHEDULED.value
+
+    def test_get_appointment_by_id_success(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
+        """Test: GET /api/v1/appointments/{id} → 200 OK"""
+
+        # 1. Create a patient
+        patient = Patient(
+            patient_number="PDC-000004",
+            name="Test Patient",
+            phone="1111111111",
+            dob=datetime.now().date() - timedelta(days=365*25),
+            aadhaar="111111111111",
+            gender="Male",
+            address="123 Test Street",
+            chief_complaint="Test",
+            is_active=True
+        )
+        db_session.add(patient)
+        db_session.commit()
+        db_session.refresh(patient)
         
-    def test_get_appointment_by_id_not_found(self, client: TestClient):
-        """Test: GET /api/v1/appointments/{id} with non-existent ID → 404"""
+        # 2. Create an appointment
+        start_time = datetime.now(timezone.utc) + timedelta(days=1)
+        end_time = start_time + timedelta(hours=1)
+        
+        appointment_data = {
+            "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "reason_for_visit": "Annual checkup",
+            "internal_notes": "Test notes"
+        }
+        
+        create_response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
+        assert create_response.status_code == 201
+        created_appointment = create_response.json()
+        appointment_id = created_appointment["id"]
+        
+        # 3. Get the appointment by ID
+        get_response = client.get(f"/api/v1/appointments/{appointment_id}", headers=auth_headers)
+        
+        # 4. Assertions
+        assert get_response.status_code == 200
+        data = get_response.json()
+        assert data["id"] == appointment_id
+        assert data["patient_id"] == patient.id
+        assert data["reason_for_visit"] == "Annual checkup"
+        assert data["internal_notes"] == "Test notes"
+        assert data["status"] == AppointmentStatus.SCHEDULED.value
+    
+    def test_get_appointment_by_id_doctor_allowed(self, client: TestClient, db_session: Session, sample_provider, auth_headers, doctor_auth_headers):
+        """Clinical flow: Doctor can view appointment details"""
+        patient = Patient(
+            patient_number="PDC-000099",
+            name="Doctor View Patient",
+            phone="1111111199",
+            dob=datetime.now().date() - timedelta(days=365*25),
+            aadhaar="111111111199",
+            gender="Male",
+            address="123 Test Street",
+            chief_complaint="Test",
+            is_active=True
+        )
+        db_session.add(patient)
+        db_session.commit()
 
-        response = client.get("/api/v1/appointments/99999")
-            
+        start_time = datetime.now(timezone.utc) + timedelta(days=1)
+        appointment_data = {
+            "patient_id": patient.id,
+            "provider_id": sample_provider.doc_number,
+            "start_time": start_time.isoformat(),
+            "end_time": (start_time + timedelta(hours=1)).isoformat(),
+            "reason_for_visit": "Checkup",
+        }
+        create_res = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
+        app_id = create_res.json()["id"]
+
+        get_res = client.get(f"/api/v1/appointments/{app_id}", headers=doctor_auth_headers)
+        assert get_res.status_code == 200
+        assert get_res.json()["id"] == app_id
+
+    def test_get_appointment_by_id_not_found(self, client: TestClient, auth_headers):
+        """Test: GET /api/v1/appointments/{id} with non-existent ID → 404"""
+        response = client.get("/api/v1/appointments/99999", headers=auth_headers)
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
+    def test_unauthenticated_cannot_get_appointment_by_id(self, client: TestClient):
+        """Security: Anonymous user cannot view appointment"""
+        response = client.get("/api/v1/appointments/1")
+        assert response.status_code == 401
 
-    def test_get_patient_appointments_success(self, client: TestClient, db_session: Session, sample_provider):
+
+    def test_get_patient_appointments_success(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments → 200 with appointments"""
 
         # 1. Create a patient
@@ -265,7 +320,7 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response1 = client.post("/api/v1/appointments/", json=appointment_data_1)
+        response1 = client.post("/api/v1/appointments/", json=appointment_data_1, headers=auth_headers)
         assert response1.status_code == 201
         
         start_time_2 = datetime.now(timezone.utc) + timedelta(days=2)
@@ -280,11 +335,11 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response2 = client.post("/api/v1/appointments/", json=appointment_data_2)
+        response2 = client.post("/api/v1/appointments/", json=appointment_data_2, headers=auth_headers)
         assert response2.status_code == 201
         
         # 3. Get patient appointments
-        response = client.get(f"/api/v1/appointments/patient/{patient.id}/appointments")
+        response = client.get(f"/api/v1/appointments/patient/{patient.id}/appointments", headers=auth_headers)
         
         # 4. Assertions
         assert response.status_code == 200
@@ -298,7 +353,7 @@ class TestAppointmentAPI:
         assert data[1]["provider"]["doc_number"] == sample_provider.doc_number
 
 
-    def test_get_patient_appointments_empty(self, client: TestClient, db_session: Session):
+    def test_get_patient_appointments_empty(self, client: TestClient, db_session: Session, auth_headers):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments → 200 with empty list"""
         # 1. Create a patient with no appointments
         patient = Patient(
@@ -317,14 +372,14 @@ class TestAppointmentAPI:
         db_session.refresh(patient)
         
         # 2. Get patient appointments
-        response = client.get(f"/api/v1/appointments/patient/{patient.id}/appointments")
+        response = client.get(f"/api/v1/appointments/patient/{patient.id}/appointments", headers=auth_headers)
         
         # 3. Assertions
         assert response.status_code == 200
         data = response.json()
         assert data == []
 
-    def test_get_patient_appointments_with_status_filter(self, client: TestClient, db_session: Session, sample_provider):
+    def test_get_patient_appointments_with_status_filter(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments?status=confirmed → 200 filtered"""
 
         # 1. Create a patient
@@ -356,7 +411,7 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response1 = client.post("/api/v1/appointments/", json=appointment_data_1)
+        response1 = client.post("/api/v1/appointments/", json=appointment_data_1, headers=auth_headers)
         assert response1.status_code == 201
         
         # 3. Create Appointment 2: Will be CONFIRMED
@@ -372,7 +427,7 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response2 = client.post("/api/v1/appointments/", json=appointment_data_2)
+        response2 = client.post("/api/v1/appointments/", json=appointment_data_2, headers=auth_headers)
         assert response2.status_code == 201
         appointment_2 = response2.json()
         
@@ -383,14 +438,16 @@ class TestAppointmentAPI:
         
         # 5. Get only CONFIRMED appointments
         response = client.get(
-            f"/api/v1/appointments/patient/{patient.id}/appointments?status=confirmed"
+            f"/api/v1/appointments/patient/{patient.id}/appointments?status=confirmed",
+            headers=auth_headers
         )
         
         assert response.status_code == 200
         
         # 6. Get only SCHEDULED appointments
         response = client.get(
-            f"/api/v1/appointments/patient/{patient.id}/appointments?status=scheduled"
+            f"/api/v1/appointments/patient/{patient.id}/appointments?status=scheduled",
+            headers=auth_headers
         )
         
         assert response.status_code == 200
@@ -399,16 +456,16 @@ class TestAppointmentAPI:
         assert data[0]["status"] == "scheduled"
         assert data[0]["reason_for_visit"] == "Scheduled appointment"
 
-    def test_get_patient_appointments_nonexistent_patient(self, client: TestClient):
+    def test_get_patient_appointments_nonexistent_patient(self, client: TestClient, auth_headers):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments with non-existent patient → 200 empty list"""
         # Service returns empty list for non-existent patient
-        response = client.get("/api/v1/appointments/patient/99999/appointments")
+        response = client.get("/api/v1/appointments/patient/99999/appointments", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
         assert data == []
 
-    def test_get_patient_appointments_inactive_patient(self, client: TestClient, db_session: Session):
+    def test_get_patient_appointments_inactive_patient(self, client: TestClient, db_session: Session, auth_headers):
         """Test: GET /api/v1/appointments/patient/{patient_id}/appointments with inactive patient → 200 empty list"""
         # 1. Create inactive patient
         patient = Patient(
@@ -427,15 +484,20 @@ class TestAppointmentAPI:
         db_session.refresh(patient)
         
         # 2. Get appointments for inactive patient
-        response = client.get(f"/api/v1/appointments/patient/{patient.id}/appointments")
+        response = client.get(f"/api/v1/appointments/patient/{patient.id}/appointments", headers=auth_headers)
         
         # 3. Assertions
         assert response.status_code == 200
         data = response.json()
         assert data == []
 
+    def test_unauthenticated_cannot_get_patient_appointments(self, client: TestClient):
+        """Security: Anonymous user cannot view patient appointments"""
+        response = client.get("/api/v1/appointments/patient/1/appointments")
+        assert response.status_code == 401
 
-    def test_get_all_appointments_success(self, client: TestClient, db_session: Session, sample_provider):
+
+    def test_get_all_appointments_success(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: GET /api/v1/appointments/ → 200 with appointments"""
         # 1. Create a patient
         patient = Patient(
@@ -467,11 +529,11 @@ class TestAppointmentAPI:
                 "internal_notes": "Test"
             }
             
-            response = client.post("/api/v1/appointments/", json=appointment_data)
+            response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
             assert response.status_code == 201
         
         # 3. Get all appointments
-        response = client.get("/api/v1/appointments/")
+        response = client.get("/api/v1/appointments/", headers=auth_headers)
         
         # 4. Assertions
         assert response.status_code == 200
@@ -481,15 +543,15 @@ class TestAppointmentAPI:
         assert data[1]["reason_for_visit"] == "Appointment 2"
         assert data[2]["reason_for_visit"] == "Appointment 3"
 
-    def test_get_all_appointments_empty(self, client: TestClient):
+    def test_get_all_appointments_empty(self, client: TestClient, auth_headers):
         """Test: GET /api/v1/appointments/ with empty database → 200 + []"""
-        response = client.get("/api/v1/appointments/")
+        response = client.get("/api/v1/appointments/", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
         assert data == []
 
-    def test_get_all_appointments_pagination(self, client: TestClient, db_session: Session, sample_provider):
+    def test_get_all_appointments_pagination(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: GET /api/v1/appointments/?skip=0&limit=2 → pagination works"""
 
         # 1. Create a patient
@@ -522,11 +584,11 @@ class TestAppointmentAPI:
                 "internal_notes": "Test"
             }
             
-            response = client.post("/api/v1/appointments/", json=appointment_data)
+            response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
             assert response.status_code == 201
         
         # 3. Get first 2 appointments (skip=0, limit=2)
-        response = client.get("/api/v1/appointments/?skip=0&limit=2")
+        response = client.get("/api/v1/appointments/?skip=0&limit=2", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -535,7 +597,7 @@ class TestAppointmentAPI:
         assert data[1]["reason_for_visit"] == "Appointment 2"
         
         # 4. Get next 2 appointments (skip=2, limit=2)
-        response = client.get("/api/v1/appointments/?skip=2&limit=2")
+        response = client.get("/api/v1/appointments/?skip=2&limit=2", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -544,14 +606,14 @@ class TestAppointmentAPI:
         assert data[1]["reason_for_visit"] == "Appointment 4"
         
         # 5. Get last appointment (skip=4, limit=2)
-        response = client.get("/api/v1/appointments/?skip=4&limit=2")
+        response = client.get("/api/v1/appointments/?skip=4&limit=2", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
         assert data[0]["reason_for_visit"] == "Appointment 5"
 
-    def test_get_all_appointments_limit(self, client: TestClient, db_session: Session, sample_provider):
+    def test_get_all_appointments_limit(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: GET /api/v1/appointments/?limit=3 → respects limit"""
 
         # 1. Create a patient
@@ -584,11 +646,11 @@ class TestAppointmentAPI:
                 "internal_notes": "Test"
             }
             
-            response = client.post("/api/v1/appointments/", json=appointment_data)
+            response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
             assert response.status_code == 201
         
         # 3. Get only 3 appointments
-        response = client.get("/api/v1/appointments/?limit=3")
+        response = client.get("/api/v1/appointments/?limit=3", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -597,7 +659,7 @@ class TestAppointmentAPI:
         assert data[1]["reason_for_visit"] == "Appointment 2"
         assert data[2]["reason_for_visit"] == "Appointment 3"
 
-    def test_get_all_appointments_multiple_patients(self, client: TestClient, db_session: Session, sample_provider):
+    def test_get_all_appointments_multiple_patients(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: GET /api/v1/appointments/ returns appointments from multiple patients"""
         # 1. Create two patients
         patient1 = Patient(
@@ -645,7 +707,7 @@ class TestAppointmentAPI:
                 "internal_notes": "Test"
             }
             
-            response = client.post("/api/v1/appointments/", json=appointment_data)
+            response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
             assert response.status_code == 201
         
         # Patient 2: 3 appointments
@@ -662,11 +724,11 @@ class TestAppointmentAPI:
                 "internal_notes": "Test"
             }
             
-            response = client.post("/api/v1/appointments/", json=appointment_data)
+            response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
             assert response.status_code == 201
         
         # 3. Get all appointments
-        response = client.get("/api/v1/appointments/")
+        response = client.get("/api/v1/appointments/", headers=auth_headers)
         
         # 4. Assertions
         assert response.status_code == 200
@@ -679,7 +741,12 @@ class TestAppointmentAPI:
         assert len(patient1_apps) == 2
         assert len(patient2_apps) == 3
 
-    def test_update_appointment_success(self, client: TestClient, db_session: Session, sample_provider):
+    def test_unauthenticated_cannot_get_all_appointments(self, client: TestClient):
+        """Security: Anonymous user cannot list all appointments"""
+        response = client.get("/api/v1/appointments/")
+        assert response.status_code == 401
+
+    def test_update_appointment_success(self, client: TestClient, db_session: Session, sample_provider, auth_headers, admin_user):
         """Test: PATCH /api/v1/appointments/{id} → 200 OK"""
         # 1. Create a patient
         patient = Patient(
@@ -710,7 +777,7 @@ class TestAppointmentAPI:
             "internal_notes": "Original notes"
         }
         
-        create_response = client.post("/api/v1/appointments/", json=appointment_data)
+        create_response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
         assert create_response.status_code == 201
         appointment = create_response.json()
         appointment_id = appointment["id"]
@@ -726,7 +793,7 @@ class TestAppointmentAPI:
             "internal_notes": "Updated notes"
         }
         
-        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data)
+        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data, headers=auth_headers)
         
         # 4. Assertions
         assert response.status_code == 200
@@ -737,8 +804,10 @@ class TestAppointmentAPI:
         assert data["reason_for_visit"] == "Updated visit"
         assert data["internal_notes"] == "Updated notes"
         assert data["status"] == "scheduled"
+        assert data["created_by_id"] == admin_user.id
+        assert data["updated_by_id"] == admin_user.id
 
-    def test_update_appointment_status(self, client: TestClient, db_session: Session, sample_provider):
+    def test_update_appointment_status(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: PATCH /api/v1/appointments/{id} update status → 200 OK"""
         # 1. Create a patient
         patient = Patient(
@@ -769,14 +838,14 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        create_response = client.post("/api/v1/appointments/", json=appointment_data)
+        create_response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
         assert create_response.status_code == 201
         appointment = create_response.json()
         appointment_id = appointment["id"]
         
         # 3. Update status to CONFIRMED
         update_data = {"status": "confirmed"}
-        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data)
+        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data, headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -784,21 +853,21 @@ class TestAppointmentAPI:
         
         # 4. Update status to CHECKED_IN
         update_data = {"status": "checked_in"}
-        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data)
+        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data, headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "checked_in"
 
-    def test_update_appointment_not_found(self, client: TestClient):
+    def test_update_appointment_not_found(self, client: TestClient, auth_headers):
         """Test: PATCH /api/v1/appointments/{id} with non-existent ID → 404"""
         update_data = {"reason_for_visit": "Updated visit"}
-        response = client.patch("/api/v1/appointments/99999", json=update_data)
+        response = client.patch("/api/v1/appointments/99999", json=update_data, headers=auth_headers)
         
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    def test_update_appointment_invalid_status_transition(self, client: TestClient, db_session: Session, sample_provider):
+    def test_update_appointment_invalid_status_transition(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: PATCH /api/v1/appointments/{id} with invalid status transition → 400"""
         # 1. Create a patient
         patient = Patient(
@@ -829,19 +898,19 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        create_response = client.post("/api/v1/appointments/", json=appointment_data)
+        create_response = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
         assert create_response.status_code == 201
         appointment = create_response.json()
         appointment_id = appointment["id"]
         
         # 3. Try invalid transition: scheduled → completed (skip steps)
         update_data = {"status": "completed"}
-        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data)
+        response = client.patch(f"/api/v1/appointments/{appointment_id}", json=update_data, headers=auth_headers)
         
         assert response.status_code == 400
         assert "invalid status transition" in response.json()["detail"].lower()
 
-    def test_update_appointment_overlapping_time(self, client: TestClient, db_session: Session, sample_provider):
+    def test_update_appointment_overlapping_time(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
         """Test: PATCH /api/v1/appointments/{id} with overlapping time → 409"""
 
         # 1. Create a patient
@@ -873,7 +942,7 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response1 = client.post("/api/v1/appointments/", json=appointment_data_1)
+        response1 = client.post("/api/v1/appointments/", json=appointment_data_1, headers=auth_headers)
         assert response1.status_code == 201
         appointment_1 = response1.json()
         
@@ -890,7 +959,7 @@ class TestAppointmentAPI:
             "internal_notes": "Test"
         }
         
-        response2 = client.post("/api/v1/appointments/", json=appointment_data_2)
+        response2 = client.post("/api/v1/appointments/", json=appointment_data_2, headers=auth_headers)
         assert response2.status_code == 201
         appointment_2 = response2.json()
         
@@ -903,7 +972,45 @@ class TestAppointmentAPI:
             "end_time": new_end.isoformat()
         }
         
-        response = client.patch(f"/api/v1/appointments/{appointment_2['id']}", json=update_data)
+        response = client.patch(f"/api/v1/appointments/{appointment_2['id']}", json=update_data, headers=auth_headers)
         
         assert response.status_code == 409
         assert "already has an appointment" in response.json()["detail"].lower()
+
+    def test_unauthenticated_cannot_update_appointment(self, client: TestClient):
+        """Security: Anonymous user cannot update appointment"""
+        response = client.patch("/api/v1/appointments/1", json={"status": "confirmed"})
+        assert response.status_code == 401
+
+    def test_admin_create_doctor_update_appointment_audit(
+            self, client: TestClient, sample_provider, sample_patient,
+            auth_headers, doctor_auth_headers, admin_user, doctor_user
+        ):
+            """Audit Trail: Admin books appointment, Doctor updates notes; audit IDs track both actors"""
+            start_time = datetime.now(timezone.utc) + timedelta(days=2)
+            end_time = start_time + timedelta(hours=1)
+
+            appointment_data = {
+                "patient_id": sample_patient.id,
+                "provider_id": sample_provider.doc_number,
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "reason_for_visit": "Consultation",
+                "internal_notes": "Booked by front desk"
+            }
+            create_res = client.post("/api/v1/appointments/", json=appointment_data, headers=auth_headers)
+            assert create_res.status_code == 201
+            appt_id = create_res.json()["id"]
+            assert create_res.json()["created_by_id"] == admin_user.id
+            assert create_res.json()["updated_by_id"] == admin_user.id
+
+            # Doctor updates clinical notes
+            update_res = client.patch(
+                f"/api/v1/appointments/{appt_id}",
+                json={"internal_notes": "Doctor examined patient. Prescribed medication."},
+                headers=doctor_auth_headers
+            )
+            assert update_res.status_code == 200
+            data = update_res.json()
+            assert data["created_by_id"] == admin_user.id
+            assert data["updated_by_id"] == doctor_user.id 

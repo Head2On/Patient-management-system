@@ -50,6 +50,14 @@ class Appointment(Base):
         onupdate=datetime.now(timezone.utc), 
         nullable=False
     )
+    created_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    updated_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
 
 
     patient: Mapped["Patient"] = relationship(back_populates="appointments")

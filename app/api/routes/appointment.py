@@ -7,6 +7,13 @@ from app.db.database import get_db
 from app.schemas.appointment import AppointmentCreate, AppointmentResponse
 from app.services.appointment import AppointmentServices, AppointmentStatus,AppointmentUpdate 
 
+from app.core.security import (
+    get_current_user, 
+    get_current_admin_or_receptionist_user
+)
+from app.models.user import User
+
+
 appointments_router = APIRouter()
 
 #Create appointments
@@ -18,12 +25,13 @@ appointments_router = APIRouter()
 )
 def create_appointment(
     appointment_data: AppointmentCreate,
+    current_user: User = Depends(get_current_admin_or_receptionist_user),
     db: Session = Depends(get_db)
 ):
     service = AppointmentServices(db)
     
     try:
-        appointment = service.create_appointment(appointment_data)
+        appointment = service.create_appointment(appointment_data, actor=current_user)
         return appointment
     except ValueError as e:
         # Translate service errors to HTTP exceptions
@@ -56,6 +64,7 @@ def create_appointment(
 )
 def get_appointment(
     appointment_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = AppointmentServices(db)
@@ -78,6 +87,7 @@ def get_appointment(
 def get_patient_appointments(
     patient_id: int,
     status: Optional[AppointmentStatus] = None,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = AppointmentServices(db)
@@ -93,6 +103,7 @@ def get_patient_appointments(
 def get_all_appointment(
     skip: int = 0,
     limit : int = 100,
+    current_user: User = Depends(get_current_user),
     db:Session = Depends(get_db)
 ):
     service = AppointmentServices(db)
@@ -109,12 +120,13 @@ def get_all_appointment(
 def update_appointment(
     appointment_id:int,
     update_data: AppointmentUpdate,
+    current_user: User = Depends(get_current_user),
     db:Session = Depends(get_db)
 ):
     service = AppointmentServices(db)
 
     try:
-        appointment = service.update_appointment(appointment_id, update_data)
+        appointment = service.update_appointment(appointment_id, update_data, current_user)
         return appointment
     except ValueError as e:
         if "not found" in str(e).lower():

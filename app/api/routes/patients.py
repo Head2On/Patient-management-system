@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db 
 from app.schemas.patient import PatientCreate, PatientResponse, PatientUpdate, PatientDeleteResponse, PaginationParams
 from app.services.patient import register_patient, get_patient_by_number, get_all_patients, updated_patient_by_number, soft_delete_patient,reactivate_patient
+from app.core.security import get_current_user, get_current_admin_or_receptionist_user
+from app.models.user import User
 
 
 
@@ -15,9 +17,13 @@ patients_router = APIRouter()
     "/",response_model=PatientResponse, 
     status_code=status.HTTP_201_CREATED 
 )
-def create_patient(patient_data: PatientCreate, db: Session = Depends(get_db)):
+def create_patient(
+    patient_data: PatientCreate,
+    current_user: User = Depends(get_current_admin_or_receptionist_user),
+    db: Session = Depends(get_db)
+):
     try : 
-        patient = register_patient(db, patient_data)
+        patient = register_patient(db, patient_data, actor=current_user)
         return patient
     except HTTPException:
         raise
@@ -27,11 +33,13 @@ def create_patient(patient_data: PatientCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error while registering the patient")
-    
-    
 
 @patients_router.get("/{patient_number}")
-def get_patient(patient_number: str, db: Session = Depends(get_db)):
+def get_patient(
+    patient_number: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     patient = get_patient_by_number(db, patient_number)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
@@ -39,9 +47,10 @@ def get_patient(patient_number: str, db: Session = Depends(get_db)):
 
 @patients_router.get("/", response_model=List[PatientResponse])
 def list_all_patients(
-    db: Session = Depends(get_db), 
     pagination: PaginationParams = Depends(),
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     offset = (pagination.page - 1) * pagination.limit
     patients = get_all_patients(
@@ -52,9 +61,14 @@ def list_all_patients(
     return patients
 
 @patients_router.patch("/{patient_number}", response_model=PatientResponse)
-def update_patient(patient_number: str, patient_data: PatientUpdate, db: Session = Depends(get_db)):
+def update_patient(
+    patient_number: str,
+    patient_data: PatientUpdate,
+    current_user: User = Depends(get_current_admin_or_receptionist_user),
+    db: Session = Depends(get_db)
+):
     try:
-        patient = updated_patient_by_number(db, patient_number, patient_data)
+        patient = updated_patient_by_number(db, patient_number, patient_data, actor=current_user)
         if not patient:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
         return patient
@@ -67,11 +81,14 @@ def update_patient(patient_number: str, patient_data: PatientUpdate, db: Session
     except Exception as e:
         raise HTTPException(500, detail="An error when updating the patient")
 
-
 @patients_router.delete("/{patient_number}" ,response_model=PatientDeleteResponse, status_code=status.HTTP_200_OK)
-def delete_patient_soft(patient_number: str, db: Session = Depends(get_db)):
+def delete_patient_soft(
+    patient_number: str,
+    current_user: User = Depends(get_current_admin_or_receptionist_user),
+    db: Session = Depends(get_db)
+):
     try : 
-        patient = soft_delete_patient(db, patient_number)
+        patient = soft_delete_patient(db, patient_number, actor=current_user)
         if not patient:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
         return {
@@ -89,9 +106,13 @@ def delete_patient_soft(patient_number: str, db: Session = Depends(get_db)):
         raise HTTPException(500, detail="An error while deactivating the patient")
 
 @patients_router.patch("/{patient_number}/reactivate", response_model=PatientResponse)
-def reactivate_patient_route(patient_number: str, db: Session = Depends(get_db)):  
+def reactivate_patient_route(
+    patient_number: str,
+    current_user: User = Depends(get_current_admin_or_receptionist_user),
+    db: Session = Depends(get_db)
+):  
     try:
-        patient = reactivate_patient(db, patient_number)  
+        patient = reactivate_patient(db, patient_number, actor=current_user)  
         if not patient:
             raise HTTPException(404, detail="Patient not found")
         return patient

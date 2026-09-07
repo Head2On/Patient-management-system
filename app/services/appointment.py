@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.patient import Patient
 from app.models.provider import Provider
+from app.models.user import User
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentStatus
 
 
@@ -13,7 +14,7 @@ class AppointmentServices:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_appointment(self, appointment_data: AppointmentCreate) -> Appointment:
+    def create_appointment(self, appointment_data: AppointmentCreate, actor: Optional[User] = None) -> Appointment:
         # 1. Validate patient (existing code - keep)
 
         patient = self.db.query(Patient).filter(Patient.id == appointment_data.patient_id).first()
@@ -64,7 +65,9 @@ class AppointmentServices:
             end_time=appointment_data.end_time,
             status=AppointmentStatus.SCHEDULED.value,
             reason_for_visit=appointment_data.reason_for_visit,
-            internal_notes=appointment_data.internal_notes
+            internal_notes=appointment_data.internal_notes,
+            created_by_id=actor.id if actor else None,
+            updated_by_id=actor.id if actor else None
         )
 
         try:
@@ -103,7 +106,7 @@ class AppointmentServices:
             if provider:
                 query = query.filter(Appointment.provider_id == provider.id)
     
-        return query.offset(skip).limit(limit).all()
+        return query.order_by(Appointment.id).offset(skip).limit(limit).all()
 
     def get_provider_appointments(self, provider_id: str, status: Optional[AppointmentStatus] = None) -> List[Appointment]:
         """Get all appointments for a specific provider"""
@@ -159,7 +162,7 @@ class AppointmentServices:
                 f"Allowed transitions: {allowed}"
             )
     
-    def update_appointment(self, appointment_id: int, update_data: AppointmentUpdate) -> Optional[Appointment]:
+    def update_appointment(self, appointment_id: int, update_data: AppointmentUpdate, actor:Optional[User] = None) -> Optional[Appointment]:
         """Update an existing appointment"""
 
         # 1. Get appointment
@@ -226,6 +229,8 @@ class AppointmentServices:
         if update_data.status:
             self._validate_status_transition(appointment.status, update_data.status.value)
             appointment.status = update_data.status.value
+        if actor:
+            appointment.updated_by_id = actor.id
         
         # 7. Save
         try:
@@ -237,7 +242,7 @@ class AppointmentServices:
         
         return appointment
 
-    def cancel_appointment(self, appointment_id: int) -> Optional[Appointment]:
+    def cancel_appointment(self, appointment_id: int, actor: Optional[User] = None) -> Optional[Appointment]:
         """Cancel an appointment by setting status to CANCELLED"""
         # 1. Get appointment
         appointment = self.get_appointment_by_id(appointment_id)
@@ -256,7 +261,9 @@ class AppointmentServices:
         
         # 4. Update status
         appointment.status = AppointmentStatus.CANCELLED.value
-        
+        if actor:
+            appointment.updated_by_id = actor.id
+            
         try:
             self.db.commit()
             self.db.refresh(appointment)

@@ -66,6 +66,8 @@ class AppointmentResponse(BaseModel):
     internal_notes: Optional[str]
     created_at: datetime
     updated_at: datetime
+    created_by_id: Optional[int] = None
+    updated_by_id: Optional[int] = None
 
     model_config = ConfigDict(  
         from_attributes=True,

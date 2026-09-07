@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import Optional,List
 from app.models.provider import Provider
+from app.models.user import User
 from app.schemas.provider import ProviderCreate,ProviderUpdate
 
 
@@ -9,6 +10,7 @@ class ProviderServices:
     
     def __init__(self, db: Session):
         self.db = db
+
     
     def _generate_doc_number(self, name: str, phone: str) -> str:
       
@@ -26,8 +28,7 @@ class ProviderServices:
         
         return f"{name_initial}{last_four}"
     
-    def create_provider(self, provider_data: ProviderCreate) -> Provider:
-
+    def create_provider(self, provider_data: ProviderCreate, actor: Optional[User] = None) -> Provider:
         """Create a new provider"""
         
         # 1. Generate doc_number from name + phone
@@ -61,7 +62,9 @@ class ProviderServices:
             phone=provider_data.phone,
             email=provider_data.email,  
             post=provider_data.post.value,  
-            is_active=True 
+            is_active=True,
+            created_by_id=actor.id if actor else None,
+            updated_by_id=actor.id if actor else None
         )
         
         # 5. Save to database
@@ -105,7 +108,7 @@ class ProviderServices:
             .limit(limit)\
             .all()
 
-    def update_provider(self, doc_number: str, update_data: ProviderUpdate) -> Provider:
+    def update_provider(self, doc_number: str, update_data: ProviderUpdate, actor: Optional[User] = None) -> Provider:
        
         # 1. Find provider
         provider = self.get_provider_by_doc_number(doc_number)
@@ -136,6 +139,9 @@ class ProviderServices:
         
         if update_data.post is not None:
             provider.post = update_data.post.value  # Enum to string
+
+        if actor:
+            provider.updated_by_id = actor.id
         
         # 4. Save to database
         try:
@@ -154,7 +160,7 @@ class ProviderServices:
             self.db.rollback()
             raise ValueError(f"Database error: {str(e)}")
  
-    def deactivate_provider(self, doc_number: str) -> Provider:
+    def deactivate_provider(self, doc_number: str, actor: Optional[User] = None) -> Provider:
        
         # 1. Find provider
         provider = self.get_provider_by_doc_number(doc_number)
@@ -167,6 +173,8 @@ class ProviderServices:
         
         # 3. Deactivate
         provider.is_active = False
+        if actor:
+            provider.updated_by_id = actor.id
         
         # 4. Save
         try:
@@ -178,7 +186,7 @@ class ProviderServices:
             self.db.rollback()
             raise ValueError(f"Database error: {str(e)}")
     
-    def reactivate_provider(self, doc_number: str) -> Provider:
+    def reactivate_provider(self, doc_number: str, actor: Optional[User] = None) -> Provider:
         
         # 1. Find provider
         provider = self.get_provider_by_doc_number(doc_number)
@@ -191,6 +199,8 @@ class ProviderServices:
         
         # 3. Reactivate
         provider.is_active = True
+        if actor:
+            provider.updated_by_id = actor.id
         
         # 4. Save
         try:

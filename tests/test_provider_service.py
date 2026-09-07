@@ -1216,3 +1216,40 @@ class TestProviderServices:
         # Final state should be active
         final = service.get_provider_by_doc_number("TD9999")
         assert final.is_active is True
+
+    # ============= AUDIT TRAIL TESTS =============
+
+    def test_create_provider_audit_fields(self, db_session, admin_user):
+        """Test provider creation records actor in created_by_id and updated_by_id"""
+        service = ProviderServices(db_session)
+        provider_data = ProviderCreate(
+            name="Audit Doc",
+            specialization="Radiology",
+            phone="9876547777",
+            post=PostType.MD
+        )
+        provider = service.create_provider(provider_data, actor=admin_user)
+        assert provider.created_by_id == admin_user.id
+        assert provider.updated_by_id == admin_user.id
+
+    def test_update_provider_audit_fields(self, db_session, active_provider, admin_user):
+        """Test provider update records actor in updated_by_id"""
+        service = ProviderServices(db_session)
+        updated = service.update_provider(
+            active_provider.doc_number,
+            ProviderUpdate(specialization="Orthopedics"),
+            actor=admin_user
+        )
+        assert updated.updated_by_id == admin_user.id
+
+    def test_deactivate_provider_audit_fields(self, db_session, active_provider, admin_user):
+        """Test provider deactivation records actor in updated_by_id"""
+        service = ProviderServices(db_session)
+        deactivated = service.deactivate_provider(active_provider.doc_number, actor=admin_user)
+        assert deactivated.updated_by_id == admin_user.id
+
+    def test_reactivate_provider_audit_fields(self, db_session, inactive_provider, admin_user):
+        """Test provider reactivation records actor in updated_by_id"""
+        service = ProviderServices(db_session)
+        reactivated = service.reactivate_provider(inactive_provider.doc_number, actor=admin_user)
+        assert reactivated.updated_by_id == admin_user.id

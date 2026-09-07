@@ -5,7 +5,18 @@ from app.db.database import get_db
 from app.models.provider import Provider
 
 
+import pytest
+from fastapi import status
+
+
 class TestProviderRouter:
+
+    @pytest.fixture(autouse=True)
+    def setup_admin_auth(self, client: TestClient, auth_headers: dict):
+        client.headers.clear()
+        client.headers.update(auth_headers)
+        yield
+        client.headers.clear()
 
     # POST ALL PROVIDERS TESTS
 
@@ -982,3 +993,147 @@ class TestProviderRouter:
         assert data["name"] == "Dr. New Name"
         assert data["specialization"] == "New Specialty"
         assert data["is_active"] is False
+
+    # ============= RBAC & SECURITY TESTS =============
+
+    def test_unauthenticated_cannot_create_provider(self, client: TestClient):
+        """Security: Anonymous request cannot create provider"""
+        anon_client = TestClient(client.app)
+        response = anon_client.post("/api/v1/providers/", json={})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_receptionist_cannot_create_provider(self, client: TestClient, receptionist_auth_headers):
+        """Security: Receptionist role cannot create provider (403 Forbidden)"""
+        payload = {
+            "name": "Dr. Unauthorized Doc",
+            "specialization": "Cardiology",
+            "phone": "9876543299",
+            "post": "MD"
+        }
+        response = client.post("/api/v1/providers/", json=payload, headers=receptionist_auth_headers)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    def test_doctor_cannot_create_provider(self, client: TestClient, doctor_auth_headers):
+        """Security: Doctor role cannot create provider (403 Forbidden)"""
+        payload = {
+            "name": "Dr. Unauthorized Doc2",
+            "specialization": "Cardiology",
+            "phone": "9876543298",
+            "post": "MD"
+        }
+        response = client.post("/api/v1/providers/", json=payload, headers=doctor_auth_headers)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    def test_unauthenticated_cannot_list_providers(self, client: TestClient):
+        """Security: Anonymous request cannot list providers"""
+        anon_client = TestClient(client.app)
+        response = anon_client.get("/api/v1/providers/")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_doctor_can_list_providers(self, client: TestClient, doctor_auth_headers):
+        """Clinical flow: Doctor can view provider directory"""
+        response = client.get("/api/v1/providers/", headers=doctor_auth_headers)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_receptionist_can_list_providers(self, client: TestClient, receptionist_auth_headers):
+        """Front desk flow: Receptionist can view provider directory"""
+        response = client.get("/api/v1/providers/", headers=receptionist_auth_headers)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_doctor_cannot_update_provider(self, client: TestClient, doctor_auth_headers, active_provider):
+        """Security: Doctor role cannot update provider profile"""
+        response = client.put(
+            f"/api/v1/providers/{active_provider.doc_number}",
+            json={"name": "Dr. Hacked Name"},
+            headers=doctor_auth_headers
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    def test_receptionist_cannot_update_provider(self, client: TestClient, receptionist_auth_headers, active_provider):
+        """Security: Receptionist role cannot update provider profile"""
+        response = client.put(
+            f"/api/v1/providers/{active_provider.doc_number}",
+            json={"name": "Dr. Hacked Name"},
+            headers=receptionist_auth_headers
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    def test_doctor_cannot_deactivate_provider(self, client: TestClient, doctor_auth_headers, active_provider):
+        """Security: Doctor role cannot deactivate provider"""
+        response = client.delete(
+            f"/api/v1/providers/{active_provider.doc_number}",
+            headers=doctor_auth_headers
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    def test_receptionist_cannot_deactivate_provider(self, client: TestClient, receptionist_auth_headers, active_provider):
+        """Security: Receptionist role cannot deactivate provider"""
+        response = client.delete(
+            f"/api/v1/providers/{active_provider.doc_number}",
+            headers=receptionist_auth_headers
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    def test_doctor_cannot_reactivate_provider(self, client: TestClient, doctor_auth_headers, inactive_provider):
+        """Security: Doctor role cannot reactivate provider"""
+        response = client.patch(
+            f"/api/v1/providers/{inactive_provider.doc_number}/reactivate",
+            headers=doctor_auth_headers
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    def test_receptionist_cannot_reactivate_provider(self, client: TestClient, receptionist_auth_headers, inactive_provider):
+        """Security: Receptionist role cannot reactivate provider"""
+        response = client.patch(
+            f"/api/v1/providers/{inactive_provider.doc_number}/reactivate",
+            headers=receptionist_auth_headers
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Not enough permissions" in response.json()["detail"]
+
+    # ============= AUDIT TRAIL TESTS =============
+
+    def test_create_provider_sets_audit_fields(self, client: TestClient, admin_user):
+        """Audit: Creating provider records created_by_id and updated_by_id"""
+        payload = {
+            "name": "Dr. Audit Check",
+            "specialization": "Oncology",
+            "phone": "9876500001",
+            "post": "MD"
+        }
+        response = client.post("/api/v1/providers/", json=payload)
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["created_by_id"] == admin_user.id
+        assert data["updated_by_id"] == admin_user.id
+
+    def test_update_provider_updates_audit_field(self, client: TestClient, active_provider, admin_user):
+        """Audit: Updating provider updates updated_by_id"""
+        response = client.put(
+            f"/api/v1/providers/{active_provider.doc_number}",
+            json={"specialization": "Pediatric Cardiology"}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["updated_by_id"] == admin_user.id
+
+    def test_deactivate_provider_updates_audit_field(self, client: TestClient, active_provider, admin_user):
+        """Audit: Deactivating provider updates updated_by_id"""
+        response = client.delete(f"/api/v1/providers/{active_provider.doc_number}")
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["updated_by_id"] == admin_user.id
+
+    def test_reactivate_provider_updates_audit_field(self, client: TestClient, inactive_provider, admin_user):
+        """Audit: Reactivating provider updates updated_by_id"""
+        response = client.patch(f"/api/v1/providers/{inactive_provider.doc_number}/reactivate")
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["updated_by_id"] == admin_user.id

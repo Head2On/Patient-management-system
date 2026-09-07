@@ -33,7 +33,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    provider: Mapped[Optional["Provider"]] = relationship("Provider", back_populates="user")
+    provider: Mapped[Optional["Provider"]] = relationship("Provider", back_populates="user", foreign_keys=[provider_id])
     
     def __repr__(self):
         return f"User(id={self.id!r}, phone={self.phone!r}, role={self.role!r})"

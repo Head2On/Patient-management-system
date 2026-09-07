@@ -229,4 +229,25 @@ def existing_doctor_user(db_session, active_provider):
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
-    return user  
+    return user
+
+
+# ============= AUTH TOKEN FIXTURES =============
+
+@pytest.fixture
+def auth_headers(admin_user):
+    from app.core.security import create_access_token
+    token = create_access_token(data={"sub": str(admin_user.id), "role": admin_user.role.value})
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def receptionist_auth_headers(receptionist_user):
+    from app.core.security import create_access_token
+    token = create_access_token(data={"sub": str(receptionist_user.id), "role": receptionist_user.role.value})
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def doctor_auth_headers(doctor_user):
+    from app.core.security import create_access_token
+    token = create_access_token(data={"sub": str(doctor_user.id), "role": doctor_user.role.value})
+    return {"Authorization": f"Bearer {token}"}

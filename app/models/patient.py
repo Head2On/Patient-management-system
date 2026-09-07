@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional ,List
-from sqlalchemy import String, Date
+from sqlalchemy import String, Date, ForeignKey
 from datetime import date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
@@ -21,6 +21,8 @@ class Patient(Base):
     chief_complaint: Mapped[str] = mapped_column(String(300), nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
 
+    created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"),nullable=True)
+    updated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"),nullable=True)
 
     appointments: Mapped[List["Appointment"]] = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")
 

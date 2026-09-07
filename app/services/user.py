@@ -201,7 +201,7 @@ class UserService:
         new_role = admin_update.role if admin_update.role is not None else user.role
         
         # If changing away from DOCTOR, clear provider_id unless explicitly set
-        if 'provider_id' in admin_update.__dict__ or  admin_update.provider_id is not None:
+        if 'provider_id' in admin_update.model_fields_set:
             new_provider_id = admin_update.provider_id
         elif new_role != UserRole.DOCTOR:
             new_provider_id = None

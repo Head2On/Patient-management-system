@@ -21,6 +21,8 @@ class PatientResponse(BaseModel):
     address: str
     chief_complaint: str
     is_active:bool
+    created_by_id: Optional[int] = None
+    updated_by_id: Optional[int] = None
     
 
     model_config = ConfigDict(from_attributes=True)
