@@ -26,6 +26,8 @@ from app.core.security import (
 from app.models.user import User
 from app.core.config import settings
 
+from app.core.rate_limiter import rate_limit_dependency
+
 
 users_router = APIRouter()
 
@@ -57,9 +59,14 @@ def get_current_user_profile(
 @users_router.post("/login", response_model=UserLoginResponse)
 def login(
     login_data: UserLogin,
+    rate_limit_info: dict = Depends(rate_limit_dependency),
     db: Session = Depends(get_db)
 ):
-    """Login with phone and password - returns JWT token"""
+    """
+    Login with phone and password - returns JWT token
+     Rate limit with 5 attempts 5 min (IP - address)
+    """
+
     service = UserService(db)
     
     user = service.authenticate_user(login_data.phone, login_data.password)
@@ -77,11 +84,12 @@ def login(
         expires_delta=access_token_expires
     )
     
-    return {
+    response = {
         "access_token": access_token,
         "token_type": "bearer",
         "user": user
     }
+    return response
 
 # Get user by phone
 @users_router.get("/phone/{phone}", response_model=UserResponse)
