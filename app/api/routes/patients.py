@@ -5,34 +5,41 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.db.database import get_db 
 from app.schemas.patient import PatientCreate, PatientResponse, PatientUpdate, PatientDeleteResponse, PaginationParams
-from app.services.patient import register_patient, get_patient_by_number, get_all_patients, updated_patient_by_number, soft_delete_patient,reactivate_patient
+from app.services.patient import register_patient, get_patient_by_number, get_all_patients, updated_patient_by_number, soft_delete_patient, reactivate_patient
 from app.core.security import get_current_user, get_current_admin_or_receptionist_user
 from app.models.user import User
+from app.core.logging_config import get_logger
 
-
+logger = get_logger(__name__)
 
 patients_router = APIRouter()
 
+
 @patients_router.post(
-    "/",response_model=PatientResponse, 
-    status_code=status.HTTP_201_CREATED 
+    "/", response_model=PatientResponse,
+    status_code=status.HTTP_201_CREATED
 )
 def create_patient(
     patient_data: PatientCreate,
     current_user: User = Depends(get_current_admin_or_receptionist_user),
     db: Session = Depends(get_db)
 ):
-    try : 
+    try:
         patient = register_patient(db, patient_data, actor=current_user)
+        logger.info("Patient created number=%s by=%s", patient.patient_number, current_user.id)
         return patient
     except HTTPException:
         raise
     except ValueError as e:
+        logger.warning("Patient creation failed by=%s reason=%s", current_user.id, str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except RuntimeError as e:
+        logger.warning("Patient creation runtime error by=%s reason=%s", current_user.id, str(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     except Exception as e:
+        logger.exception("Patient creation unexpected error by=%s", current_user.id)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error while registering the patient")
+
 
 @patients_router.get("/{patient_number}")
 def get_patient(
@@ -43,7 +50,8 @@ def get_patient(
     patient = get_patient_by_number(db, patient_number)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
-    return patient   
+    return patient
+
 
 @patients_router.get("/", response_model=List[PatientResponse])
 def list_all_patients(
@@ -60,6 +68,7 @@ def list_all_patients(
     )
     return patients
 
+
 @patients_router.patch("/{patient_number}", response_model=PatientResponse)
 def update_patient(
     patient_number: str,
@@ -71,26 +80,32 @@ def update_patient(
         patient = updated_patient_by_number(db, patient_number, patient_data, actor=current_user)
         if not patient:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+        logger.info("Patient updated number=%s by=%s", patient_number, current_user.id)
         return patient
     except HTTPException:
-        raise 
+        raise
     except ValueError as e:
+        logger.warning("Patient update failed number=%s by=%s reason=%s", patient_number, current_user.id, str(e))
         raise HTTPException(400, detail=str(e))
     except RuntimeError as e:
+        logger.warning("Patient update runtime error number=%s by=%s reason=%s", patient_number, current_user.id, str(e))
         raise HTTPException(500, detail=str(e))
     except Exception as e:
+        logger.exception("Patient update unexpected error number=%s by=%s", patient_number, current_user.id)
         raise HTTPException(500, detail="An error when updating the patient")
 
-@patients_router.delete("/{patient_number}" ,response_model=PatientDeleteResponse, status_code=status.HTTP_200_OK)
+
+@patients_router.delete("/{patient_number}", response_model=PatientDeleteResponse, status_code=status.HTTP_200_OK)
 def delete_patient_soft(
     patient_number: str,
     current_user: User = Depends(get_current_admin_or_receptionist_user),
     db: Session = Depends(get_db)
 ):
-    try : 
+    try:
         patient = soft_delete_patient(db, patient_number, actor=current_user)
         if not patient:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+        logger.info("Patient deactivated number=%s by=%s", patient_number, current_user.id)
         return {
             "message": "Patient deactivated success",
             "patient_number": patient_number,
@@ -99,28 +114,36 @@ def delete_patient_soft(
     except HTTPException:
         raise
     except ValueError as e:
+        logger.warning("Patient deactivation failed number=%s by=%s reason=%s", patient_number, current_user.id, str(e))
         raise HTTPException(400, detail=str(e))
     except RuntimeError as e:
+        logger.warning("Patient deactivation runtime error number=%s by=%s reason=%s", patient_number, current_user.id, str(e))
         raise HTTPException(500, detail=str(e))
     except Exception as e:
+        logger.exception("Patient deactivation unexpected error number=%s by=%s", patient_number, current_user.id)
         raise HTTPException(500, detail="An error while deactivating the patient")
+
 
 @patients_router.patch("/{patient_number}/reactivate", response_model=PatientResponse)
 def reactivate_patient_route(
     patient_number: str,
     current_user: User = Depends(get_current_admin_or_receptionist_user),
     db: Session = Depends(get_db)
-):  
+):
     try:
-        patient = reactivate_patient(db, patient_number, actor=current_user)  
+        patient = reactivate_patient(db, patient_number, actor=current_user)
         if not patient:
             raise HTTPException(404, detail="Patient not found")
+        logger.info("Patient reactivated number=%s by=%s", patient_number, current_user.id)
         return patient
     except HTTPException:
         raise
     except ValueError as e:
+        logger.warning("Patient reactivation failed number=%s by=%s reason=%s", patient_number, current_user.id, str(e))
         raise HTTPException(400, detail=str(e))
     except RuntimeError as e:
+        logger.warning("Patient reactivation runtime error number=%s by=%s reason=%s", patient_number, current_user.id, str(e))
         raise HTTPException(500, detail=str(e))
     except Exception as e:
+        logger.exception("Patient reactivation unexpected error number=%s by=%s", patient_number, current_user.id)
         raise HTTPException(500, detail="An error while reactivating the patient")

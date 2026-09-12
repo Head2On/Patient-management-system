@@ -27,7 +27,10 @@ from app.models.user import User
 from app.core.config import settings
 
 from app.core.rate_limiter import rate_limit_dependency
+from app.core.config import settings
+from app.core.logging_config import get_logger
 
+logger = get_logger(__name__)
 
 users_router = APIRouter()
 
@@ -40,6 +43,7 @@ def create_user(
     service = UserService(db)
     try:
         user = service.create_user(user_data, actor=current_user)
+        logger.info("User created id=%s role=%s by=%s", user.id, user.role.value, current_user.id)
         return user
     except ValueError as e:
         raise HTTPException(
@@ -62,15 +66,12 @@ def login(
     rate_limit_info: dict = Depends(rate_limit_dependency),
     db: Session = Depends(get_db)
 ):
-    """
-    Login with phone and password - returns JWT token
-     Rate limit with 5 attempts 5 min (IP - address)
-    """
 
     service = UserService(db)
     
     user = service.authenticate_user(login_data.phone, login_data.password)
     if not user:
+        logger.warning("Login failed phone=%s", login_data.phone)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid phone or password",
@@ -83,7 +84,7 @@ def login(
         data={"sub": str(user.id), "role": user.role.value},
         expires_delta=access_token_expires
     )
-    
+    logger.info("Login success user_id=%s role=%s", user.id, user.role.value)
     response = {
         "access_token": access_token,
         "token_type": "bearer",
@@ -117,6 +118,7 @@ def get_user(
     service = UserService(db)
 
     if current_user.role != UserRole.ADMIN and current_user.id != user_id:
+        logger.warning("Unauthorized user view actor=%s target=%s", current_user.id, user_id)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view this user"
@@ -153,6 +155,7 @@ def update_user(
     service = UserService(db)
 
     if current_user.role != UserRole.ADMIN and current_user.id != user_id:
+        logger.warning("Unauthorized user update actor=%s target=%s", current_user.id, user_id)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update another user's profile"
@@ -162,6 +165,7 @@ def update_user(
         user = service.update_user(user_id, user_update, actor=current_user)
         return user
     except ValueError as e:
+       logger.warning("User update failed id=%s by=%s reason=%s", user_id, current_user.id, str(e))
        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -178,8 +182,10 @@ def update_user_by_admin(
     service = UserService(db)
     try:
         user = service.admin_update_user(user_id, admin_update, actor=current_user)
+        logger.info("User admin-updated id=%s by=%s", user.id, current_user.id)
         return user
     except ValueError as e:
+        logger.warning("Admin update failed id=%s by=%s reason=%s", user_id, current_user.id, str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -197,8 +203,10 @@ def update_user_role(
 
     try:
         user = service.update_user_role(user_id, role_update, actor=current_user)
+        logger.info("User role updated id=%s by=%s", user.id, current_user.id)
         return user
     except ValueError as e:
+        logger.warning("Role update failed id=%s by=%s reason=%s", user_id, current_user.id, str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -214,9 +222,13 @@ def update_user_provider_link(
 ):
     service = UserService(db)
     try:
-        user = service.update_user_provider_link(user_id, link_update, actor=current_user)
+        user = service.update_user_provider_link(
+            user_id, link_update, actor=current_user
+        )
+        logger.info("User provider link updated id=%s by=%s", user.id, current_user.id)
         return user
     except ValueError as e:
+        logger.warning("Provider link update failed id=%s by=%s reason=%s", user_id, current_user.id, str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -233,8 +245,10 @@ def deactivate_user(
 
     try:
         user = service.deactivate_user(user_id, actor=current_user)
+        logger.info("User deactivated id=%s by=%s", user.id, current_user.id)
         return user
     except ValueError as e:
+        logger.warning("Deactivation failed id=%s by=%s reason=%s", user_id, current_user.id, str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -251,8 +265,10 @@ def reactivate_user(
 
     try:
         user = service.reactivate_user(user_id, actor=current_user)
+        logger.info("User reactivated id=%s by=%s", user.id, current_user.id)
         return user
     except ValueError as e:
+        logger.warning("Reactivation failed id=%s by=%s reason=%s", user_id, current_user.id, str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)

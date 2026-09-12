@@ -285,7 +285,7 @@ class TestUserAPI:
 
     # ============= LOGIN TESTS =============
     
-    def test_login_success(self, client: TestClient, db_session, admin_user):
+    def test_login_success(self, client: TestClient, db_session, admin_user, disable_rate_limiter,):
         """Test: User logs in successfully with phone and password"""
         response = client.post(
             "/api/v1/users/login",
@@ -302,7 +302,7 @@ class TestUserAPI:
         assert data["user"]["id"] == admin_user.id
         assert data["user"]["phone"] == admin_user.phone
 
-    def test_login_wrong_password(self, client: TestClient, db_session, admin_user):
+    def test_login_wrong_password(self, client: TestClient, db_session, admin_user, disable_rate_limiter,):
         """Test: Login fails with wrong password"""
         response = client.post(
             "/api/v1/users/login",
@@ -315,7 +315,7 @@ class TestUserAPI:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Invalid phone or password" in response.json()["detail"]
 
-    def test_login_user_not_found(self, client: TestClient):
+    def test_login_user_not_found(self, client: TestClient, disable_rate_limiter,):
         """Test: Login fails for non-existent user"""
         response = client.post(
             "/api/v1/users/login",
@@ -328,7 +328,7 @@ class TestUserAPI:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Invalid phone or password" in response.json()["detail"]
 
-    def test_login_inactive_user(self, client: TestClient, db_session, admin_user):
+    def test_login_inactive_user(self, client: TestClient, db_session, admin_user, disable_rate_limiter,):
         """Test: Login fails for inactive user"""
         # Deactivate admin user
         admin_user.is_active = False

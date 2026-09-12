@@ -12,6 +12,7 @@ from app.main import app
 from app.db.database import get_db, Base
 from app.core.config import settings
 from app.core.security import get_password_hash
+from app.core.rate_limiter import rate_limit_dependency
 
 from datetime import datetime, timedelta, timezone
 from app.models.patient import Patient
@@ -19,11 +20,23 @@ from app.schemas.appointment import AppointmentCreate
 from app.services.appointment import AppointmentServices
 from app.models.provider import Provider 
 from app.models.user import User, UserRole
+from app.core.security import get_password_hash, create_access_token
+
 
 
 SQLALCHEMY_DATABASE_URL = settings.test_database_url
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture
+def disable_rate_limiter():
+    """Bypass rate limiter for user unit tests to prevent Redis event-loop clashes."""
+    async def dummy_rate_limit():
+        return {}
+    
+    app.dependency_overrides[rate_limit_dependency] = dummy_rate_limit
+    yield
+    app.dependency_overrides.pop(rate_limit_dependency, None)
 
 @pytest.fixture(scope="session", autouse=True)
 def apply_migrations():
@@ -236,18 +249,15 @@ def existing_doctor_user(db_session, active_provider):
 
 @pytest.fixture
 def auth_headers(admin_user):
-    from app.core.security import create_access_token
     token = create_access_token(data={"sub": str(admin_user.id), "role": admin_user.role.value})
     return {"Authorization": f"Bearer {token}"}
 
 @pytest.fixture
 def receptionist_auth_headers(receptionist_user):
-    from app.core.security import create_access_token
     token = create_access_token(data={"sub": str(receptionist_user.id), "role": receptionist_user.role.value})
     return {"Authorization": f"Bearer {token}"}
 
 @pytest.fixture
 def doctor_auth_headers(doctor_user):
-    from app.core.security import create_access_token
     token = create_access_token(data={"sub": str(doctor_user.id), "role": doctor_user.role.value})
     return {"Authorization": f"Bearer {token}"}

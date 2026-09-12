@@ -10,6 +10,10 @@ from app.core.security import (
     get_current_admin_user,
     get_current_user
 )
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 providers_router = APIRouter()
 
 
@@ -28,12 +32,23 @@ def create_provider(
     
     try:
         provider = service.create_provider(provider_data, actor=current_user)
+        logger.info(
+            "Provider created doc_number=%s by=%s",
+            provider.doc_number,
+            current_user.id
+        )
         return provider
     except ValueError as e:
+        logger.warning(
+            "Provider creation failed by=%s reason=%s",
+            current_user.id,
+            str(e)
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
 
 @providers_router.get(
     "/",
@@ -50,6 +65,7 @@ def get_all_providers(
     service = ProviderServices(db)
     providers = service.get_all_providers(skip=skip, limit=limit)
     return providers
+
 
 @providers_router.get(
     "/{doc_number}",
@@ -73,6 +89,7 @@ def get_provider_by_doc_number(
     
     return provider
 
+
 @providers_router.put(
     "/{doc_number}",
     response_model=ProviderResponse,
@@ -88,9 +105,20 @@ def update_provider(
     
     try:
         provider = service.update_provider(doc_number, update_data, actor=current_user)
+        logger.info(
+            "Provider updated doc_number=%s by=%s",
+            doc_number,
+            current_user.id
+        )
         return provider
     except ValueError as e:
         error_msg = str(e)
+        logger.warning(
+            "Provider update failed doc_number=%s by=%s reason=%s",
+            doc_number,
+            current_user.id,
+            error_msg
+        )
         if "not found" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -100,6 +128,7 @@ def update_provider(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
 
 @providers_router.delete(
     "/{doc_number}",
@@ -115,9 +144,20 @@ def deactivate_provider(
     
     try:
         provider = service.deactivate_provider(doc_number, actor=current_user)
+        logger.info(
+            "Provider deactivated doc_number=%s by=%s",
+            doc_number,
+            current_user.id
+        )
         return provider
     except ValueError as e:
         error_msg = str(e)
+        logger.warning(
+            "Provider deactivation failed doc_number=%s by=%s reason=%s",
+            doc_number,
+            current_user.id,
+            error_msg
+        )
         if "not found" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -143,9 +183,20 @@ def reactivate_provider(
     
     try:
         provider = service.reactivate_provider(doc_number, actor=current_user)
+        logger.info(
+            "Provider reactivated doc_number=%s by=%s",
+            doc_number,
+            current_user.id
+        )
         return provider
     except ValueError as e:
         error_msg = str(e)
+        logger.warning(
+            "Provider reactivation failed doc_number=%s by=%s reason=%s",
+            doc_number,
+            current_user.id,
+            error_msg
+        )
         if "not found" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

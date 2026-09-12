@@ -808,7 +808,6 @@ class TestAppointmentAPI:
         assert data["updated_by_id"] == admin_user.id
 
     def test_update_appointment_status(self, client: TestClient, db_session: Session, sample_provider, auth_headers):
-        """Test: PATCH /api/v1/appointments/{id} update status → 200 OK"""
         # 1. Create a patient
         patient = Patient(
             patient_number="PDC-000015",

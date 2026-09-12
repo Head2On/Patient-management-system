@@ -65,7 +65,9 @@ class TestRateLimiter:
     
     async def test_rate_limit_exceeded(self):
         redis = await redis_client.get_client()
-        await redis.delete("rate_limit:login:testclient")
+        keys = await redis.keys("rate_limit:*")
+        if keys:
+            await redis.delete(*keys)
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
             # First 5 succeed
@@ -84,7 +86,9 @@ class TestRateLimiter:
     
     async def test_rate_limit_headers(self):
         redis = await redis_client.get_client()
-        await redis.delete("rate_limit:login:testclient")
+        keys = await redis.keys("rate_limit:*")
+        if keys:
+             await redis.delete(*keys)
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
             response = await ac.post("/test-rate-limit")
@@ -92,11 +96,13 @@ class TestRateLimiter:
         assert "X-RateLimit-Limit" in response.headers
         assert "X-RateLimit-Remaining" in response.headers
         assert response.headers["X-RateLimit-Limit"] == "5"
-        assert int(response.headers["X-RateLimit-Remaining"]) == 0
+        assert int(response.headers["X-RateLimit-Remaining"]) == 4
     
     async def test_rate_limit_retry_after(self):
         redis = await redis_client.get_client()
-        await redis.delete("rate_limit:login:testclient")
+        keys = await redis.keys("rate_limit:*")
+        if keys:
+            await redis.delete(*keys)
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
             for _ in range(5):
@@ -111,8 +117,9 @@ class TestRateLimiter:
     
     async def test_rate_limit_different_ips(self):
         redis = await redis_client.get_client()
-        await redis.delete("rate_limit:login:192.168.1.1")
-        await redis.delete("rate_limit:login:192.168.1.2")
+        keys = await redis.keys("rate_limit:*")
+        if keys:
+            await redis.delete(*keys)
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
             # FIX: Spoof IP #1 using the X-Forwarded-For header

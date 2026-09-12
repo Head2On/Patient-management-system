@@ -12,7 +12,11 @@ from app.core.security import (
     get_current_admin_or_receptionist_user
 )
 from app.models.user import User
+from app.core.config import settings
+from app.core.logging_config import get_logger
 
+
+logger = get_logger(__name__)
 
 appointments_router = APIRouter()
 
@@ -32,9 +36,17 @@ def create_appointment(
     
     try:
         appointment = service.create_appointment(appointment_data, actor=current_user)
+        logger.info(
+            "Appointment created id=%s patient_id=%s provider_id=%s by=%s",
+            appointment.id,
+            appointment.patient_id,
+            appointment.provider_id,
+            current_user.id,
+        )
         return appointment
     except ValueError as e:
         # Translate service errors to HTTP exceptions
+        logger.warning("Appointment creation failed by=%s reason=%s", current_user.id, str(e))
         if "not found" in str(e).lower() or "inactive" in str(e).lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -127,6 +139,7 @@ def update_appointment(
 
     try:
         appointment = service.update_appointment(appointment_id, update_data, current_user)
+        logger.info("Appointment updated id=%s by=%s", appointment.id, current_user.id)
         return appointment
     except ValueError as e:
         if "not found" in str(e).lower():
@@ -159,3 +172,4 @@ def update_appointment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
+            
