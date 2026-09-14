@@ -9,6 +9,3 @@ MEMORY.md
 .venv
 env/
 venv/
-
-# PyInstaller
-alembic.ini
