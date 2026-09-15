@@ -1,375 +1,202 @@
-# 🏥 Patient Management System API
+# Patient Management System
 
-A FastAPI-based REST API for managing patient records with PostgreSQL, SQLAlchemy ORM, and Alembic migrations. 
-Status : 🚧[In development]
+A backend API for clinics and small hospitals to manage patients, providers, appointments, and staff accounts. Built with FastAPI and PostgreSQL, designed for real deployment with JWT authentication, role-based access control, rate limiting, and containerized delivery.
 
----
 
-## 📋 Table of Contents
+# What It Does
 
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Setup & Installation](#setup--installation)
-- [Environment Variables](#environment-variables)
-- [Database Migrations](#database-migrations)
-- [API Endpoints](#api-endpoints)
-- [Testing](#testing)
-- [Development Workflow](#development-workflow)
+Clinics need a single system to:
 
----
+Register patients and track their visits
 
-## 🚀 Features
+Manage doctor and staff accounts
 
--  **Create Patient** - Register new patients with unique patient numbers `[Done]`
--  **Get Patient** - Retrieve patient details by patient number `[Done]`
--  **Get All Patients** - List all active patients with pagination `[Done]`
--  **Update Patient** - Partially update patient information `[Done]`
--  **Soft Delete** - Deactivate patients (set `is_active = False`) `[Done]`
--  **Reactivate** - Reactivate previously deactivated patients `[Done]`
--  **Search** - Search patients by name, phone, or patient number `[Done]`
--  **Pagination** - Page through patient lists `[Done]`
--  **Soft Delete** - No data is permanently deleted `[Done]`
--  **PostgreSQL** - Production-ready database `[Done]`
--  **Transaction Management** - Proper error handling and rollbacks `[Done]`
+Schedule appointments and prevent double bookings
 
----
+Control who can do what (front desk vs. doctors vs. administrators)
 
-## 🛠️ Tech Stack
+Protect login endpoints from brute-force attacks
 
-| Technology | Purpose |
-|------------|---------|
-| **FastAPI** | Web framework |
-| **SQLAlchemy** | ORM |
-| **PostgreSQL** | Database |
-| **Alembic** | Migrations |
-| **Pydantic** | Data validation |
-| **python-dotenv** | Environment variables |
+This API handles all of that. It is the backend only — no UI. Any frontend (web, mobile, or internal tool) can consume it.
 
----
+# Features
 
-## 📁 Project Structure
+Patient management — registration, search, soft delete, reactivation
 
-```
-patient-management-system/
-├── app/
-│   ├── api/
-│   │   └── routes/
-│   │       └── patients.py      # API endpoints
-│   ├── core/
-│   │   ├── config.py            # Settings
-│   │   └── database.py          # DB connection
-│   ├── db/
-│   │   └── database.py          # Base & Session
-│   ├── models/
-│   │   └── patient.py           # SQLAlchemy model
-│   ├── schemas/
-│   │   └── patient.py           # Pydantic schemas
-│   ├── services/
-│   │   └── patient.py           # Business logic
-│   └── main.py                  # FastAPI app
-├── alembic/
-│   ├── versions/                # Migration files
-│   └── env.py                   # Alembic config
-├── tests/                       # Test files (ignored in git)
-├── .env                         # Environment variables
-├── .gitignore
-├── alembic.ini
-├── requirements.txt
-└── README.md
-```
+Provider management — doctor records with auto-generated identifiers
 
----
+Appointment scheduling — overlap prevention, status lifecycle, provider assignment
 
-## ⚙️ Setup & Installation
+Authentication — JWT-based login with phone + password
 
-### 1. **Clone the Repository**
-```bash
-git clone <repo-url>
-cd patient-management-system
-```
+Authorization — three roles: ADMIN, DOCTOR, RECEPTIONIST
 
-### 2. **Create Virtual Environment**
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+Rate limiting — sliding window on login, backed by Redis
 
-### 3. **Install Dependencies**
-```bash
+Audit trails — every record tracks who created and last updated it
+
+Structured logging — JSON logs in production, human-readable in development
+
+Health checks — for orchestrators and load balancers
+
+# Tech Stack
+
+  Layer	                    Technology
+Language	                Python 3.14
+Web framework	            FastAPI
+Database	                PostgreSQL 16
+ORM	                      SQLAlchemy 2.0
+Migrations	              Alembic
+Validation	              Pydantic v2
+Authentication	          JWT (python-jose)
+Rate limiting	            Redis 7, sliding window
+Testing	                  pytest
+Containerization	        Docker, Docker Compose
+CI	                      GitHub Actions
+
+# Quick Start
+
+Requires Docker and Docker Compose.
+
+
+git clone https://github.com/Head2On/Patient-management-system.git
+cd Patient-management-system
+docker compose up -d
+docker compose exec api alembic upgrade head
+docker compose exec api python scripts/create_admin.py \
+  --phone 9999999999 \
+  --password AdminPass123 \
+  --email admin@hospital.com
+Open http://localhost:8000/docs for the interactive API documentation.
+
+Log in via POST /api/v1/users/login with the admin credentials above. Use the returned token as Authorization: Bearer <token> for all subsequent requests.
+
+# API Overview
+All routes are prefixed with /api/v1.
+
+# Patients
+#
+Method	Endpoint	Description
+POST	/patients/	Register a patient
+GET	/patients/	List patients (paginated, searchable)
+GET	/patients/{patient_number}	Fetch a patient
+PATCH	/patients/{patient_number}	Update patient details
+DELETE	/patients/{patient_number}	Deactivate a patient
+PATCH	/patients/{patient_number}/reactivate	Reactivate a patient
+
+# Providers
+
+Method	Endpoint	Description
+POST	/providers/	Create a provider
+GET	/providers/	List providers
+GET	/providers/{doc_number}	Fetch a provider
+PUT	/providers/{doc_number}	Update a provider
+DELETE	/providers/{doc_number}	Deactivate a provider
+PATCH	/providers/{doc_number}/reactivate	Reactivate a provider
+
+# Appointments
+
+Method	Endpoint	Description
+POST	/appointments/	Book an appointment
+GET	/appointments/	List appointments
+GET	/appointments/{id}	Fetch an appointment
+GET	/appointments/patient/{patient_id}/appointments	Appointments for a patient
+PATCH	/appointments/{id}	Update appointment details or status
+
+# Users
+
+Method	Endpoint	Description
+POST	/users/login	Log in, receive JWT
+GET	/users/me	Current user profile
+POST	/users/	Create a user (admin only)
+GET	/users/	List users (admin only)
+GET	/users/{id}	Fetch a user
+GET	/users/phone/{phone}	Fetch by phone (admin only)
+PATCH	/users/{id}	Update own profile
+PATCH	/users/{id}/admin	Update role or provider link (admin only)
+PATCH	/users/{id}/role	Change role (admin only)
+PATCH	/users/{id}/provider	Change provider link (admin only)
+DELETE	/users/{id}/deactivate	Deactivate a user
+POST	/users/{id}/reactivate	Reactivate a user
+
+# Roles and Permissions
+Role	                            Scope
+ADMIN	                  Full access. Creates users, changes roles, manages providers.
+RECEPTIONIST	          Registers patients, books appointments, deactivates users. No admin actions.
+DOCTOR	                Views patients and appointments, updates clinical notes and appointment status. No user management.
+
+# Business rules enforced at the service layer:
+
+DOCTOR role requires a linked provider record
+
+ADMIN and RECEPTIONIST cannot be linked to a provider
+
+A provider can be linked to at most one user
+
+Appointments cannot overlap for the same patient or provider
+
+Inactive patients cannot receive new appointments
+
+# Running Tests
+Tests run against a separate PostgreSQL database and use a real Redis instance. In CI, both are provided as service containers.
+
+Local run:
+
+docker compose exec api pytest tests/ -v
+
+The suite covers services, routes, schemas, authentication, rate limiting, and logging. Total: 421 tests.
+
+# Local Development Without Docker
+
+python -m venv .venv
+source .venv/bin/activate or .venv/bin/activate 
 pip install -r requirements.txt
-```
 
-### 4. **Set Up PostgreSQL**
-```bash
-# Create databases
-createdb -U postgres patient_management
-createdb -U postgres test_db
-```
+# Start Postgres and Redis (locally or via docker compose)
+# Set your .env
+cp .env.example .env  # edit as needed
 
-### 5. **Environment Variables**
-Create `.env` file:
-```env
-DATABASE_URL=postgresql+psycopg://postgres:your_password@localhost:5432/patient_management
-TEST_DATABASE_URL=postgresql+psycopg://postgres:your_password@localhost:5432/test_db
-```
-
-### 6. **Run Migrations**
-```bash
-# For development
 alembic upgrade head
-
-# For test (if needed)
-export ALEMBIC_ENV=test
-alembic upgrade head
-```
-
-### 7. **Start Server**
-```bash
 uvicorn app.main:app --reload
-```
+Tests:
 
-### 8. **Access API Docs**
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
----
-
-## 🔧 Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | Development database URL | `postgresql+psycopg://postgres:pass@localhost:5432/patient_management` |
-| `TEST_DATABASE_URL` | Test database URL | `postgresql+psycopg://postgres:pass@localhost:5432/test_db` |
-
----
-
-## 🗄️ Database Migrations
-
-### **Dev Database**
-```bash
-# Generate migration
-alembic revision --autogenerate -m "description"
-
-# Apply migration
-alembic upgrade head
-
-# Check current version
-alembic current
-```
-
-### **Test Database**
-```bash
-export ALEMBIC_ENV=test
-alembic upgrade head
-```
-
-### **Reset Database**
-```bash
-# Drop and recreate
-psql -U postgres -d patient_management -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-alembic upgrade head
-```
-
----
-
-## 📡 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/patients` | Create a new patient |
-| `GET` | `/api/v1/patients` | Get all patients (with pagination & search) |
-| `GET` | `/api/v1/patients/{patient_number}` | Get patient by patient number |
-| `PATCH` | `/api/v1/patients/{patient_number}` | Update patient |
-| `DELETE` | `/api/v1/patients/{patient_number}` | Soft delete patient |
-| `PATCH` | `/api/v1/patients/{patient_number}/reactivate` | Reactivate patient |
-
-### **Query Parameters**
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `page` | `1` | Page number |
-| `limit` | `10` | Items per page (max 100) |
-| `search` | `None` | Search by name, phone, or patient_number |
-
----
-
-## 📝 Example Requests
-
-### **Create Patient**
-```http
-POST /api/v1/patients
-{
-  "name": "John Doe",
-  "phone": "9876543210",
-  "dob": "1990-01-15",
-  "gender": "Male",
-  "address": "123 Main Street",
-  "chief_complaint": "Fever and cough",
-  "aadhaar": "123456789012"
-}
-```
-
-### **Response**
-```json
-{
-  "patient_number": "PDC-000001",
-  "name": "John Doe",
-  "phone": "9876543210",
-  "dob": "1990-01-15",
-  "gender": "Male",
-  "address": "123 Main Street",
-  "chief_complaint": "Fever and cough"
-}
-```
-
-### **Search Patients**
-```http
-GET /api/v1/patients?search=John&page=1&limit=10
-```
-
-### **Update Patient**
-```http
-PATCH /api/v1/patients/PDC-000001
-{
-  "phone": "9998887777",
-  "address": "456 New Street"
-}
-```
-
-### **Soft Delete**
-```http
-DELETE /api/v1/patients/PDC-000001
-```
-
-### **Reactivate**
-```http
-PATCH /api/v1/patients/PDC-000001/reactivate
-```
-
----
-
-## 🧪 Testing
-
-```bash
-# Run all tests
 pytest tests/ -v
+Configuration
+Environment variables (set via .env, docker-compose.yml, or the deployment platform):
 
-# Run specific test
-pytest tests/test_patients.py::test_create_patient_success -v
-```
+Variable	                                Purpose
+DATABASE_URL	                    PostgreSQL connection string
+TEST_DATABASE_URL	                Test database connection string
+SECRET_KEY	                      JWT signing key
+ALGORITHM	                        JWT algorithm (default HS256)
+ACCESS_TOKEN_EXPIRE_MINUTES	      Token lifetime
+REDIS_URL	                        Redis connection string
+LOGIN_RATE_LIMIT	                Login attempts allowed per window
+LOGIN_RATE_WINDOW	                Rate limit window in seconds
+DEBUG	                            Development logging if true
 
----
+# Project Structure
 
-## 🔄 Development Workflow
+app/
+├── api/routes/       HTTP endpoints
+├── core/             Config, security, logging, rate limiter, Redis
+├── db/               Database session and engine
+├── models/           SQLAlchemy models
+├── schemas/          Pydantic schemas
+└── services/         Business logic
 
-```bash
-# 1. Start PostgreSQL
-sudo systemctl start postgresql  # Linux
-brew services start postgresql   # Mac
+alembic/              Database migrations
+scripts/              Operational scripts (admin seeding)
+tests/                Test suite
+docs/                 Architecture, API, and database notes
 
-# 2. Activate environment
-source venv/bin/activate
+# Deployment Notes
 
-# 3. Run migrations
-alembic upgrade head
+The application reads all configuration from environment variables
 
-# 4. Start dev server
-uvicorn app.main:app --reload
+Migrations run via alembic upgrade head before the app starts
 
-# 5. Test endpoints at http://localhost:8000/docs
-```
+Redis is required at runtime for rate limiting
 
----
+Container listens on port 8000 by default
 
-## 🐘 Database Schema
-
-### **Patients Table**
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer | Primary key (auto-increment) |
-| `patient_number` | String(20) | Unique public ID (e.g., PDC-000001) |
-| `name` | String(200) | Patient's full name |
-| `phone` | String(20) | Contact number |
-| `dob` | Date | Date of birth |
-| `aadhaar` | String(20) | Unique government ID (optional) |
-| `gender` | String(10) | Gender |
-| `address` | String(300) | Address |
-| `chief_complaint` | String(300) | Main complaint |
-| `is_active` | Boolean | Soft delete flag (default: true) |
-
----
-
-## 🛡️ Error Handling
-
-| Status Code | Description |
-|-------------|-------------|
-| `201` | Created successfully |
-| `200` | Success |
-| `400` | Bad request (validation error) |
-| `404` | Patient not found |
-| `500` | Internal server error |
-
----
-
-## 🔐 Security Notes
-
-- `patient_number` is the public identifier (not `id`)
-- `is_active` flag enables soft delete (no data loss)
-- Database credentials stored in `.env` (never commit)
-- Input validation via Pydantic schemas
-
----
-
-## 📦 Requirements
-
-Create `requirements.txt`:
-```txt
-use to  pip list
-```
-
----
-
-## 🤝 Contributing
-1. Fork the repo. 
-2. Create a feature branch.
-3. Commit your changes.
-4. Push to the branch.
-5. Open a Pull Request.
-
----
-
-## 📄 License
-
-This project is for educational purposes.
-
----
-
-## ✨ Acknowledgments
-
-- FastAPI for the amazing framework
-- SQLAlchemy for the powerful ORM
-- PostgreSQL for the reliable database
-
----
-
-**Happy Coding!** 🚀
-
----
-
-## Quick Commands Reference
-```bash
-# Dev
-uvicorn app.main:app --reload
-
-# Migrations
-alembic upgrade head
-alembic revision --autogenerate -m "msg"
-
-# Test
-export ALEMBIC_ENV=test
-alembic upgrade head
-pytest tests/ -v
-
-# Database
-psql -U postgres -d patient_management -c "\dt"
-```
