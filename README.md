@@ -141,4 +141,5 @@ scripts/              Operational scripts (admin seeding)
 tests/                Test suite
 docs/                 Architecture, API, and database notes
 ```
-![API Documentation Screenshot](assets/Screenshot 2026-09-15 141434.png)
+
+![API Documentation Screenshot](assets/imageapi.png)
