@@ -199,7 +199,7 @@ class TestUserAPI:
             }
         )
         
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == 422
 
     def test_create_user_doctor_already_linked_provider_fails(self, client: TestClient, db_session, existing_doctor_user, active_provider):
         """Test: Doctor with already linked provider fails (400)"""
@@ -242,7 +242,7 @@ class TestUserAPI:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Provider must exist and be active" in response.json()["detail"]
 
-    def test_create_user_admin_with_provider_fails(self, client: TestClient, db_session, admin_user, active_provider):
+    def test_create_user_admin_with_provider_fails(self, client: TestClient, db_session, active_provider):
         """Test: Admin cannot have provider_id fails validation (422)"""
         token = self._get_admin_token(db_session)
         headers = self._get_auth_headers(token)
@@ -259,7 +259,7 @@ class TestUserAPI:
             }
         )
         
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == 422
 
     # ============= GET CURRENT USER PROFILE TESTS =============
     

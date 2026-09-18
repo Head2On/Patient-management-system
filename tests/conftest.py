@@ -3,7 +3,7 @@ os.environ["ALEMBIC_ENV"] = "test"
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from alembic import command
 from alembic.config import Config
@@ -49,8 +49,8 @@ def apply_migrations():
 def db_session():
     db = TestingSessionLocal()
     
-    for table in reversed(Base.metadata.sorted_tables):
-        db.execute(table.delete())
+    table_names = ", ".join(t.name for t in Base.metadata.tables.values())
+    db.execute(text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE"))
     db.commit()
     
     def override_get_db():

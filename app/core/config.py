@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     login_rate_limit:int =  5
     login_rate_window: int = 300
 
+    cors_origins: list[str] = ["*"]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

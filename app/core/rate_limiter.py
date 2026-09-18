@@ -48,10 +48,10 @@ class RateLimiter:
         
         # Remove entries older than the window
         min_score = now - (window * 1000)
-        client.zremrangebyscore(key, 0, min_score)
+        await client.zremrangebyscore(key, 0, min_score)
         
         # Get count of entries in the window
-        count = client.zcard(key)
+        count = await client.zcard(key)
         
         return count
     
@@ -60,7 +60,7 @@ class RateLimiter:
         client = await self.redis.get_client()
         
         now = time.time() * 1000
-        client.zadd(key, {str(now): now})
+        await client.zadd(key, {str(now): now})
         
         # Set expiration on the key to clean up automatically
         # I'll use 2x the window to be safe
@@ -73,7 +73,7 @@ class RateLimiter:
         """Set expiration on the Redis key to prevent memory leaks"""
         client = await self.redis.get_client()
         # Expire after 2x the window
-        client.expire(key, window * 2)
+        await client.expire(key, window * 2)
     
     async def check_limit(
         self, 
@@ -163,7 +163,7 @@ def rate_limit(limit: int, window: int, key_prefix: str = "rate_limit"):
                 return await func(*args, **kwargs)
             
             # Check rate limit
-            allowed, headers = rate_limiter.check_limit(
+            allowed, headers = await rate_limiter.check_limit(
                 request=request,
                 limit=limit,
                 window=window,

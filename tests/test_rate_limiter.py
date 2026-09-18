@@ -170,12 +170,7 @@ class TestRateLimiter:
         # But that's slow, so we'll skip for now
         pass
     
-    def test_rate_limit_decorator(self):
-        """Test rate limit decorator works"""
-        # This is harder to test directly
-        # We'll test through the login endpoint which uses the dependency
-        # Already covered in previous tests
-        pass
+
     
     async def test_rate_limit_clear_redis(self):
         redis = await redis_client.get_client()
@@ -208,7 +203,3 @@ class TestRateLimitDependency:
             # We'll skip this for now and test through the endpoint
             pass
     
-    def test_rate_limit_dependency_exceeded(self):
-        """Test rate limit dependency blocks requests after limit"""
-        # Similar to above, test through endpoint
-        pass

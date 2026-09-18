@@ -51,7 +51,7 @@ class TestRedisClient:
         """Test Redis expiration"""
         client = await redis_client.get_client()
         
-        await client.setex("test_expire", 1, "temp")
+        await client.set("test_expire", "temp", ex=1)
         assert await client.get("test_expire") == "temp"
         
         # Wait for expiration
