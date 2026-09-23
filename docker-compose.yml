@@ -48,6 +48,9 @@ services:
       REDIS_URL: "redis://redis:6379"
       LOGIN_RATE_LIMIT: "5"
       LOGIN_RATE_WINDOW: "300"
+      FIRST_SUPERUSER_PHONE: "9999999999"
+      FIRST_SUPERUSER_PASSWORD: "AdminPass123"
+      FIRST_SUPERUSER_EMAIL: "admin@hospital.com"
     ports:
       - "8000:8000"
 
