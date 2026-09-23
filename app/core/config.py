@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
     database_url: str
-    test_database_url: str
+    test_database_url: str | None = None
 
     secret_key: str
     algorithm: str = "HS256"
