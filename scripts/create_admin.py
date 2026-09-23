@@ -1,9 +1,3 @@
-"""
-Seed script to create the initial Root Admin user in the database.
-Usage:
-    python scripts/create_admin.py
-    python scripts/create_admin.py --phone 9999999999 --password MyPassword123 --email admin@hospital.com
-"""
 
 import argparse
 import os
@@ -37,8 +31,8 @@ def create_admin(phone: str, password: str, email: str = None) -> bool:
                 print(f"[*] Admin with phone '{phone}' already exists (ID: {existing_user.id}). No action needed.")
                 return True
             else:
-                print(f"[-] Error: A user with phone '{phone}' already exists with role '{existing_user.role.value}'.")
-                return False
+                print(f"[*] User with phone '{phone}' already exists with role '{existing_user.role.value}'. Skipping admin creation.")
+                return True
 
         admin = User(
             phone=phone,
@@ -74,33 +68,23 @@ def create_admin(phone: str, password: str, email: str = None) -> bool:
 
 def main():
     default_phone = os.getenv("FIRST_SUPERUSER_PHONE", "9999999999")
-    default_password = os.getenv("FIRST_SUPERUSER_PASSWORD", "AdminPass123")
+    default_password = os.getenv("FIRST_SUPERUSER_PASSWORD")
     default_email = os.getenv("FIRST_SUPERUSER_EMAIL", "admin@hospital.com")
 
+    if not default_password:
+        print("[-] Error: FIRST_SUPERUSER_PASSWORD environment variable is not set.")
+        print("    Set it before running this script. Refusing to use an insecure default.")
+        return 1
+
     parser = argparse.ArgumentParser(description="Create initial Admin user for Patient Management System")
-    parser.add_argument(
-        "--phone",
-        type=str,
-        default=default_phone,
-        help=f"Admin login phone number (default: {default_phone})"
-    )
-    parser.add_argument(
-        "--password",
-        type=str,
-        default=default_password,
-        help="Admin password (min 8 chars, max 72 chars)"
-    )
-    parser.add_argument(
-        "--email",
-        type=str,
-        default=default_email,
-        help=f"Admin email address (default: {default_email})"
-    )
+    parser.add_argument("--phone", type=str, default=default_phone)
+    parser.add_argument("--password", type=str, default=default_password)
+    parser.add_argument("--email", type=str, default=default_email)
 
     args = parser.parse_args()
     success = create_admin(phone=args.phone, password=args.password, email=args.email)
-    sys.exit(0 if success else 1)
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
