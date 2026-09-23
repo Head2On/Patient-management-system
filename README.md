@@ -1,5 +1,7 @@
 # Patient Management System
 
+LINK : `https://patient-management-api-m3mw.onrender.com`
+
 A backend API for clinics and small hospitals to manage patients, providers, appointments, and staff accounts. Built with FastAPI and PostgreSQL, designed for real deployment with JWT authentication, role-based access control, rate limiting, and containerized delivery.
 
 ## What It Does
