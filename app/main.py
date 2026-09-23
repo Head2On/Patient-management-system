@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.api.routes.appointment import appointments_router
 from app.api.routes.provider import providers_router
 from app.api.routes.user import users_router
+from app.api.routes.healthy import health_router
 from app.core.logging_config import setup_logging, get_logger
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +39,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    
+    if not settings.debug:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    return response
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception(
@@ -50,6 +66,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error"},
     )
 
+app.include_router(health_router)
 app.include_router(patients_router, prefix="/api/v1/patients", tags=["patients"])
 app.include_router(appointments_router,prefix="/api/v1/appointments",tags=["appointments"])
 app.include_router(providers_router,prefix="/api/v1/providers",tags=["providers"])
