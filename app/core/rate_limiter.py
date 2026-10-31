@@ -4,6 +4,9 @@ from fastapi import Request, HTTPException, status
 from datetime import datetime, timezone
 
 from app.core.redis_client import redis_client
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class RateLimiter:
@@ -217,12 +220,15 @@ async def rate_limit_dependency(
     skip_if_admin: bool = False
 ) -> dict:
     
-    # FIX: Added await to the check_limit call
-    allowed, headers = await rate_limiter.check_limit(
-        request=request,
-        limit=limit,
-        window=window
-    )
+    try:
+        allowed, headers = await rate_limiter.check_limit(
+            request=request,
+            limit=limit,
+            window=window
+        )
+    except Exception as e:
+        logger.warning(f"Redis rate limiter unavailable ({e}); failing open.")
+        return {}
     
     if not allowed:
         raise HTTPException(

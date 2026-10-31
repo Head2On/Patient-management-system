@@ -1,3 +1,4 @@
+import time
 import pytest
 import pytest_asyncio
 from fastapi import Request, Depends
@@ -13,9 +14,10 @@ pytestmark = pytest.mark.asyncio
 
 @pytest_asyncio.fixture(autouse=True)
 async def reset_redis_singleton():
-    """Force the Singleton to disconnect after every test."""
+    """Force the Singleton to disconnect and clear circuit breaker after every test."""
     yield
     await redis_client.disconnect()
+    redis_client.reset_circuit_breaker()
 
 # Inject a temporary route into the app specifically for testing the dependency
 # This prevents 401 Unauthorized errors from stripping our headers.
@@ -58,10 +60,9 @@ class TestRateLimiter:
             await redis.delete(*keys)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
-            # FIX: Loop exactly 5 times and assert inside the loop
             for _ in range(5):
                 response = await ac.post("/test-rate-limit")
-                assert response.status_code == 200 # 200 means allowed
+                assert response.status_code == 200
     
     async def test_rate_limit_exceeded(self):
         redis = await redis_client.get_client()
@@ -70,18 +71,15 @@ class TestRateLimiter:
             await redis.delete(*keys)
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
-            # First 5 succeed
             for _ in range(5):
                 await ac.post("/test-rate-limit")
             
-            # 6th fails
             response = await ac.post("/test-rate-limit")
             
         assert response.status_code == 429
         data = response.json()
         assert "error" in data["detail"]
         assert data["detail"]["error"] == "Too Many Requests"
-        # FIX: Correctly access 'remaining' inside the 'detail' dictionary
         assert data["detail"]["remaining"] == 0 
     
     async def test_rate_limit_headers(self):
@@ -108,7 +106,6 @@ class TestRateLimiter:
             for _ in range(5):
                 await ac.post("/test-rate-limit")
             
-            # 6th request gets the retry header
             response = await ac.post("/test-rate-limit")
             
         assert response.status_code == 429
@@ -122,7 +119,6 @@ class TestRateLimiter:
             await redis.delete(*keys)
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
-            # FIX: Spoof IP #1 using the X-Forwarded-For header
             headers_ip1 = {"X-Forwarded-For": "192.168.1.1"}
             for i in range(6):
                 response = await ac.post("/test-rate-limit", headers=headers_ip1)
@@ -131,20 +127,17 @@ class TestRateLimiter:
                 else:
                     assert response.status_code == 429
             
-            # FIX: Spoof IP #2 using a different header. It should succeed!
             headers_ip2 = {"X-Forwarded-For": "192.168.1.2"}
             response2 = await ac.post("/test-rate-limit", headers=headers_ip2)
             assert response2.status_code == 200
     
     async def test_rate_limit_window_reset(self):
-        # Create a test key with short window
         redis = await redis_client.get_client()
         keys = await redis.keys("rate_limit:*")
         if keys:
             await redis.delete(*keys)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as ac:
-            # Make 5 requests
             for i in range(5):
                 response = await ac.post(
                     "/api/v1/users/login",
@@ -155,7 +148,6 @@ class TestRateLimiter:
                 )
             assert response.status_code != 429
             
-            # 6th should be rate limited
             response = await ac.post(
                 "/api/v1/users/login",
                 json={
@@ -164,6 +156,7 @@ class TestRateLimiter:
                 }
             )
         assert response.status_code == 429
+<<<<<<< Updated upstream
         
         # Wait for reset (we'll mock time for testing)
         # In real test, we'd use time.sleep(window + 1)
@@ -171,6 +164,8 @@ class TestRateLimiter:
         pass
     
 
+=======
+>>>>>>> Stashed changes
     
     async def test_rate_limit_clear_redis(self):
         redis = await redis_client.get_client()
@@ -182,13 +177,16 @@ class TestRateLimiter:
 class TestRateLimitDependency:
     """Test the rate_limit_dependency function"""
     
-    async def test_rate_limit_dependency_success(self):
-        """Test rate limit dependency allows requests"""
-        # Mock request
+    async def test_rate_limit_dependency_fallback_when_redis_in_cooldown(self):
+        """Test rate_limit_dependency fails open cleanly when Redis is in cooldown"""
+        redis_client._last_failure_time = time.monotonic()
+        assert redis_client.is_in_cooldown is True
+
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
         mock_request.client = MagicMock()
         mock_request.client.host = "127.0.0.1"
+<<<<<<< Updated upstream
         
         # Clear Redis
         redis = await redis_client.get_client()
@@ -203,3 +201,8 @@ class TestRateLimitDependency:
             # We'll skip this for now and test through the endpoint
             pass
     
+=======
+
+        headers = await rate_limit_dependency(mock_request)
+        assert headers == {}
+>>>>>>> Stashed changes
