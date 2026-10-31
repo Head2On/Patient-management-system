@@ -1,9 +1,5 @@
 import asyncio
-<<<<<<< Updated upstream
-import redis.asyncio as redis
-=======
 import time
->>>>>>> Stashed changes
 from typing import Optional
 import redis.asyncio as redis
 from app.core.config import settings
@@ -16,45 +12,6 @@ class RedisClient:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-<<<<<<< Updated upstream
-            cls._instance._clients = {}
-        return cls._instance
-
-    def _current_loop_key(self):
-        try:
-            return id(asyncio.get_running_loop())
-        except RuntimeError:
-            return None
-
-    async def connect(self) -> None:
-        loop_key = self._current_loop_key()
-        redis_url = getattr(settings, 'redis_url', 'redis://localhost:6379')
-        client = redis.Redis.from_url(
-            redis_url,
-            decode_responses=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
-            retry_on_timeout=True,
-        )
-        await client.ping()
-        self._clients[loop_key] = client
-        print("Redis connected successfully")
-
-    async def disconnect(self) -> None:
-        loop_key = self._current_loop_key()
-        client = self._clients.pop(loop_key, None)
-        if client:
-            await client.aclose()
-
-    async def get_client(self) -> redis.Redis:
-        loop_key = self._current_loop_key()
-        client = self._clients.get(loop_key)
-        if client is None:
-            await self.connect()
-            client = self._clients[loop_key]
-        return client
-
-=======
             cls._instance._client = None
             cls._instance._connected = False
             cls._instance._last_failure_time = 0.0
@@ -145,6 +102,7 @@ class RedisClient:
                     pass
             self._connected = False
             self._client = None
+            self._lock = None
     
     async def get_client(self) -> redis.Redis:
         """Get Redis client instance"""
@@ -154,23 +112,18 @@ class RedisClient:
             raise redis.ConnectionError("Redis client not available")
         return self._client
     
->>>>>>> Stashed changes
     async def ping(self) -> bool:
+        """Check if Redis is available"""
         try:
             client = await self.get_client()
             return await client.ping()
         except Exception:
             return False
-
+    
     @property
     def is_connected(self) -> bool:
-        loop_key = self._current_loop_key()
-        return loop_key in self._clients
+        return self._connected
 
-
-<<<<<<< Updated upstream
-redis_client = RedisClient()
-=======
     @property
     def is_in_cooldown(self) -> bool:
         return (time.monotonic() - self._last_failure_time) < self._cooldown_seconds
@@ -179,6 +132,6 @@ redis_client = RedisClient()
         """Manually clear circuit breaker cooldown (used in test isolation)"""
         self._last_failure_time = 0.0
 
+
 # Singleton client
 redis_client = RedisClient()
->>>>>>> Stashed changes

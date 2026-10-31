@@ -156,16 +156,7 @@ class TestRateLimiter:
                 }
             )
         assert response.status_code == 429
-<<<<<<< Updated upstream
-        
-        # Wait for reset (we'll mock time for testing)
-        # In real test, we'd use time.sleep(window + 1)
-        # But that's slow, so we'll skip for now
-        pass
-    
 
-=======
->>>>>>> Stashed changes
     
     async def test_rate_limit_clear_redis(self):
         redis = await redis_client.get_client()
@@ -186,23 +177,6 @@ class TestRateLimitDependency:
         mock_request.headers = {}
         mock_request.client = MagicMock()
         mock_request.client.host = "127.0.0.1"
-<<<<<<< Updated upstream
-        
-        # Clear Redis
-        redis = await redis_client.get_client()
-        await redis.delete("rate_limit:login:127.0.0.1")
-        
-        # Make 5 calls (within limit)
-        headers = []
-        for i in range(5):
-            # We need to patch the rate_limiter.check_limit to return within limit
-            # But since we're testing the dependency, we'll test it end-to-end
-            # Actually, this is complex to test without the FastAPI request context
-            # We'll skip this for now and test through the endpoint
-            pass
-    
-=======
 
         headers = await rate_limit_dependency(mock_request)
         assert headers == {}
->>>>>>> Stashed changes
