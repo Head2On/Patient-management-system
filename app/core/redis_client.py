@@ -64,9 +64,9 @@ class RedisClient:
                 self._client = redis.Redis.from_url(
                     redis_url,
                     decode_responses=True,
-                    socket_connect_timeout=1.0,
-                    socket_timeout=1.0,
-                    retry_on_timeout=False
+                    socket_connect_timeout=5.0,
+                    socket_timeout=5.0,
+                    retry_on_timeout=True
                 )
 
                 await self._client.ping()

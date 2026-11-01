@@ -24,12 +24,13 @@ class TestHealth:
 class TestReady:
 
     def test_ready_returns_ok_when_all_up(self, client):
-        response = client.get("/ready")
-        assert response.status_code == 200
-        body = response.json()
-        assert body["status"] == "ok"
-        assert body["checks"]["database"] == "ok"
-        assert body["checks"]["redis"] == "ok"
+        with patch("app.api.routes.healthy.redis_client.ping", return_value=True):
+            response = client.get("/ready")
+            assert response.status_code == 200
+            body = response.json()
+            assert body["status"] == "ok"
+            assert body["checks"]["database"] == "ok"
+            assert body["checks"]["redis"] == "ok"
 
     def test_ready_includes_checks_object(self, client):
         response = client.get("/ready")
