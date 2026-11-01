@@ -182,10 +182,10 @@ export default function PatientsPage() {
                         <div className="h-4 w-20 bg-slate-200 animate-pulse rounded" />
                       </TableCell>
                       <TableCell>
-                        <div className="h-5 w-16 bg-slate-200 animate-pulse rounded" />
+                        <div className="h-5 w-14 bg-slate-200 animate-pulse rounded-full" />
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="h-8 w-14 bg-slate-200 animate-pulse rounded ml-auto" />
+                        <div className="h-8 w-12 bg-slate-200 animate-pulse rounded ml-auto" />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -205,18 +205,31 @@ export default function PatientsPage() {
                             No matching patient records found
                           </span>
                           <span className="text-xs text-muted-foreground max-w-sm">
-                            No patients match &quot;{debouncedSearch}&quot;. Try
+                            No active patients match &quot;{debouncedSearch}&quot;. Try
                             searching by a different name, phone number, or
                             patient ID.
                           </span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSearchQuery("")}
-                            className="mt-1 text-xs"
-                          >
-                            Clear search query
-                          </Button>
+                          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setSearchQuery("")}
+                              className="text-xs"
+                            >
+                              Clear search query
+                            </Button>
+                            {debouncedSearch.trim().toUpperCase().startsWith("PDC-") && (
+                              <Button asChild size="sm" variant="outline" className="text-xs">
+                                <Link
+                                  href={`/patients/${encodeURIComponent(
+                                    debouncedSearch.trim().toUpperCase()
+                                  )}`}
+                                >
+                                  View / Reactivate {debouncedSearch.trim().toUpperCase()}
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                     </TableRow>

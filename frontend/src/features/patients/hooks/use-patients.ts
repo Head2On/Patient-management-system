@@ -4,6 +4,8 @@ import {
   getPatient,
   createPatient,
   updatePatient,
+  deactivatePatient,
+  reactivatePatient,
   type GetPatientsParams,
 } from "@/features/patients/api/patients-api";
 import type {
@@ -11,6 +13,7 @@ import type {
   PatientDetail,
   PatientCreateInput,
   PatientUpdateInput,
+  PatientDeleteResponse,
 } from "@/types/patient";
 import type { ApiClientError } from "@/lib/api/errors";
 
@@ -108,6 +111,69 @@ export function useUpdatePatient() {
     mutationFn: ({ patientNumber, data }: UpdatePatientVariables) =>
       updatePatient(patientNumber, data),
     onSuccess: (_updatedPatient, { patientNumber }) => {
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: patientKeys.detail(patientNumber),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: patientKeys.lists(),
+        }),
+      ]);
+    },
+  });
+}
+
+/**
+ * React Query mutation hook to soft-delete (deactivate) an active patient record.
+ * Restricted to Admin and Receptionist roles.
+ *
+ * Features:
+ * - Invalidates both the specific patient's detail query and directory lists on success.
+ * - Does not perform UI navigation, leaving routing to the calling component.
+ * - Naturally propagates ApiClientError (including 403 Forbidden).
+ *
+ * @returns TanStack Mutation result for patient deactivation.
+ */
+export function useDeactivatePatient() {
+  const queryClient = useQueryClient();
+
+  return useMutation<PatientDeleteResponse, ApiClientError, string>({
+    mutationFn: (patientNumber: string) => deactivatePatient(patientNumber),
+    onSuccess: (_response, patientNumber) => {
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: patientKeys.detail(patientNumber),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: patientKeys.lists(),
+        }),
+      ]);
+    },
+  });
+}
+
+/**
+ * Backwards-compatible alias for useDeactivatePatient.
+ */
+export const useDeletePatient = useDeactivatePatient;
+
+/**
+ * React Query mutation hook to reactivate a deactivated patient record.
+ * Restricted to Admin and Receptionist roles.
+ *
+ * Features:
+ * - Invalidates both the specific patient's detail query and directory lists on success.
+ * - Does not perform UI navigation, leaving routing to the calling component.
+ * - Naturally propagates ApiClientError (including 403 Forbidden).
+ *
+ * @returns TanStack Mutation result for patient reactivation.
+ */
+export function useReactivatePatient() {
+  const queryClient = useQueryClient();
+
+  return useMutation<PatientListItem, ApiClientError, string>({
+    mutationFn: (patientNumber: string) => reactivatePatient(patientNumber),
+    onSuccess: (_response, patientNumber) => {
       return Promise.all([
         queryClient.invalidateQueries({
           queryKey: patientKeys.detail(patientNumber),

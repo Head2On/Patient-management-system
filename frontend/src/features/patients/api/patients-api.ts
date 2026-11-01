@@ -4,6 +4,7 @@ import type {
   PatientDetail,
   PatientCreateInput,
   PatientUpdateInput,
+  PatientDeleteResponse,
 } from "@/types/patient";
 import type { PagePaginationParams } from "@/types/api";
 
@@ -60,9 +61,47 @@ export async function updatePatient(
   );
 }
 
+/**
+ * Soft delete (deactivate) an active patient record.
+ * Restricted to Admin and Receptionist roles.
+ *
+ * @param patientNumber - The unique patient identifier (e.g. "PDC-000001").
+ * @returns Confirmation message and status.
+ */
+export async function deletePatient(
+  patientNumber: string
+): Promise<PatientDeleteResponse> {
+  return apiClient.delete<PatientDeleteResponse>(
+    `/patients/${encodeURIComponent(patientNumber)}`
+  );
+}
+
+/**
+ * Alias for deletePatient to align with clinical lifecycle semantics.
+ */
+export const deactivatePatient = deletePatient;
+
+/**
+ * Reactivate a deactivated patient record.
+ * Restricted to Admin and Receptionist roles.
+ *
+ * @param patientNumber - The unique patient identifier (e.g. "PDC-000001").
+ * @returns The reactivated PatientListItem record.
+ */
+export async function reactivatePatient(
+  patientNumber: string
+): Promise<PatientListItem> {
+  return apiClient.patch<PatientListItem>(
+    `/patients/${encodeURIComponent(patientNumber)}/reactivate`
+  );
+}
+
 export const patientsApi = {
   getPatients,
   getPatient,
   createPatient,
   updatePatient,
+  deletePatient,
+  deactivatePatient,
+  reactivatePatient,
 };
