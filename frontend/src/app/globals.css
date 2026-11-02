@@ -2,8 +2,8 @@
 
 @layer base {
   :root {
-    /* Bright, clean, airy off-white canvas — eliminates eye strain and muddy tints */
-    --background: #fbfcfd;
+    /* Bright, clean, airy neutral canvas — eliminates eye strain and muddy tints */
+    --background: #f8fafc;
     --foreground: #0f172a;
 
     /* Crisp pure white surfaces for cards, modals, and headers */

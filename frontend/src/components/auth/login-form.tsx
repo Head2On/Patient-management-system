@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,19 +33,41 @@ import {
  */
 const loginSchema = z.object({
   phone: z
-    .string()
-    .trim()
-    .min(1, "Phone number is required")
-    .regex(/^\d{10,15}$/, "Phone number must contain between 10 and 15 digits"),
+  .string()
+  .trim()
+  .min(1, "Phone number is required")
+  .regex(/^\d{10,15}$/, "Phone number must contain between 10 and 15 digits"),
   password: z
-    .string()
-    .min(1, "Password is required"),
+  .string()
+  .min(1, "Password is required"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+/**
+ * Validates and sanitizes the redirection target to prevent open redirect vulnerabilities.
+ */
+function getSafeRedirectUrl(rawNext: string | null): string {
+  if (!rawNext) return "/dashboard";
+  // Disallow scheme, protocol-relative, and backslash bypasses
+  if (
+    !rawNext.startsWith("/") ||
+    rawNext.startsWith("//") ||
+    rawNext.startsWith("/\\") ||
+    rawNext.includes("://")
+  ) {
+    return "/dashboard";
+  }
+  // Disallow redirecting directly back to the login page
+  if (rawNext === "/login" || rawNext.startsWith("/login?")) {
+    return "/dashboard";
+  }
+  return rawNext;
+}
+
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = React.useState(false);
   const [authError, setAuthError] = React.useState<string | null>(null);
 
@@ -92,8 +114,9 @@ export function LoginForm() {
         return;
       }
 
-      // Successful login -> Redirect to dashboard
-      router.push("/dashboard");
+      // Safe destination redirect (respecting `?next=` when arriving from protected routes)
+      const targetUrl = getSafeRedirectUrl(searchParams.get("next"));
+      router.push(targetUrl);
       router.refresh();
     } catch (err) {
       console.error("Login request error:", err);
@@ -187,7 +210,7 @@ export function LoginForm() {
 
           <Button
             type="submit"
-            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-medium h-10 mt-2"
+            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-medium h-10 mt-2 cursor-pointer"
             disabled={isSubmitting}
           >
             {isSubmitting ? (

@@ -110,6 +110,18 @@ class ApiClient {
         }
       }
 
+      // If session expired or unauthorized in browser, redirect to login (preserving return destination)
+      if (
+        typeof window !== "undefined" &&
+        response.status === 401 &&
+        !endpoint.includes("/auth/login") &&
+        window.location.pathname !== "/login"
+      ) {
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = `/login?next=${next}`;
+      }
+
       throw new ApiClientError(
         response.status,
         response.statusText,

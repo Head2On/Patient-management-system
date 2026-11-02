@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, ChevronRight, Menu } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { User, ChevronRight, Menu, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -37,6 +38,32 @@ function getInitials(name?: string): string | null {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function parseUserCookie(cookieStr: string): { name?: string; role?: string } | undefined {
+  if (!cookieStr) return undefined;
+  try {
+    const match = cookieStr.match(/(?:^|;\s*)caredesk_user=([^;]+)/);
+    if (match && match[1]) {
+      const decoded = decodeURIComponent(match[1]);
+      const parsed = JSON.parse(decoded);
+      return {
+        name: parsed.phone || parsed.email || "Staff",
+        role: parsed.role,
+      };
+    }
+  } catch {
+    // Ignore parse failure
+  }
+  return undefined;
+}
+
+function subscribeCookie(callback: () => void) {
+  window.addEventListener("focus", callback);
+  return () => window.removeEventListener("focus", callback);
+}
+
+const getCookieSnapshot = () => (typeof document !== "undefined" ? document.cookie : "");
+const getServerSnapshot = () => "";
+
 export function AppHeader({
   title,
   description,
@@ -47,7 +74,32 @@ export function AppHeader({
   children,
   ...props
 }: AppHeaderProps) {
-  const initials = getInitials(user?.name);
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+
+  // Subscribe to external cookie store for instantaneous UI hydration
+  const cookieStr = React.useSyncExternalStore(subscribeCookie, getCookieSnapshot, getServerSnapshot);
+  const cookieUser = React.useMemo(() => parseUserCookie(cookieStr), [cookieStr]);
+  const currentUser = user || cookieUser;
+
+  const initials = getInitials(currentUser?.name);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (err) {
+      console.error("Logout request error:", err);
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
+  };
 
   return (
     <header
@@ -144,15 +196,15 @@ export function AppHeader({
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align="end" className="w-48">
-            {user?.name && (
+            {currentUser?.name && (
               <>
                 <div className="px-2 py-1.5 text-xs">
                   <p className="font-medium text-slate-900 truncate">
-                    {user.name}
+                    {currentUser.name}
                   </p>
-                  {user.role && (
+                  {currentUser.role && (
                     <p className="text-[11px] text-muted-foreground uppercase tracking-wider mt-0.5">
-                      {user.role}
+                      {currentUser.role}
                     </p>
                   )}
                 </div>
@@ -171,6 +223,15 @@ export function AppHeader({
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
+
+            <DropdownMenuItem
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
