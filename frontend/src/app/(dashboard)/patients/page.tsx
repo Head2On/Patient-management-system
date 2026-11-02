@@ -23,6 +23,7 @@ import {
 } from "@/features/patients/hooks/use-patients";
 import type { PatientListItem } from "@/types/patient";
 import { PageHeaderConfig } from "@/components/layout/app-shell";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -181,13 +182,13 @@ export default function PatientsPage() {
       {/* Success Notification Banner */}
       {successBanner && (
         <Card
-          className="border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200"
+          className="border-emerald-200/70 bg-emerald-50/50 text-emerald-800"
           role="status"
           aria-live="polite"
         >
           <CardContent className="p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
               <p className="text-sm font-medium">{successBanner}</p>
             </div>
             <Button
@@ -223,36 +224,42 @@ export default function PatientsPage() {
 
           {/* Active / Inactive Segmented View Filter (Admin & Receptionist only) */}
           {canManageLifecycle && (
-            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border shrink-0 self-start sm:self-auto">
-              <Button
+            <div className="flex items-center gap-1 bg-muted/70 p-1 rounded-lg border border-border/80 shrink-0 self-start sm:self-auto">
+              <button
                 type="button"
-                variant={statusTab === "active" ? "default" : "ghost"}
-                size="sm"
                 onClick={() => {
                   if (statusTab !== "active") {
                     setStatusTab("active");
                     setPage(1);
                   }
                 }}
-                className="h-8 text-xs font-medium"
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer",
+                  statusTab === "active"
+                    ? "bg-card text-foreground shadow-xs border border-border/60"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
                 Active Patients
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant={statusTab === "inactive" ? "default" : "ghost"}
-                size="sm"
                 onClick={() => {
                   if (statusTab !== "inactive") {
                     setStatusTab("inactive");
                     setPage(1);
                   }
                 }}
-                className="h-8 text-xs font-medium gap-1.5"
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 cursor-pointer",
+                  statusTab === "inactive"
+                    ? "bg-card text-foreground shadow-xs border border-border/60"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
                 <Archive className="h-3.5 w-3.5" />
                 <span>Inactive Records</span>
-              </Button>
+              </button>
             </div>
           )}
         </div>
@@ -488,7 +495,7 @@ export default function PatientsPage() {
                                 setSelectedPatientForReactivation(patient);
                                 setReactivateError(null);
                               }}
-                              className="h-8 text-xs text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 gap-1"
+                              className="h-8 text-xs gap-1"
                             >
                               <RotateCcw className="h-3 w-3" />
                               Reactivate
@@ -548,7 +555,7 @@ export default function PatientsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <RotateCcw className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <RotateCcw className="h-5 w-5 text-primary" />
               Reactivate Patient Record
             </DialogTitle>
             <DialogDescription>
@@ -617,7 +624,7 @@ export default function PatientsPage() {
               size="sm"
               onClick={handleConfirmReactivation}
               disabled={reactivateMutation.isPending}
-              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="gap-1.5"
             >
               {reactivateMutation.isPending ? (
                 <>

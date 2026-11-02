@@ -2,39 +2,40 @@
 
 @layer base {
   :root {
-    /* Soft grey background, neutral light theme */
-    --background: #f8fafc;
+    /* Bright, clean, airy off-white canvas — eliminates eye strain and muddy tints */
+    --background: #fbfcfd;
     --foreground: #0f172a;
 
-    /* Clean white surfaces for cards and modals */
+    /* Crisp pure white surfaces for cards, modals, and headers */
     --card: #ffffff;
     --card-foreground: #0f172a;
 
     --popover: #ffffff;
     --popover-foreground: #0f172a;
 
-    /* Restrained, muted clinic green primary accent */
-    --primary: #39836D;
+    /* Classy, modern deep slate primary — replaces harsh saturated colors */
+    --primary: #0f172a;
     --primary-foreground: #ffffff;
 
-    /* Neutral slate secondary & muted tones */
+    /* Soft, neutral slate secondary & muted tones */
     --secondary: #f1f5f9;
     --secondary-foreground: #1e293b;
 
     --muted: #f1f5f9;
     --muted-foreground: #64748b;
 
-    --accent: #edf5f1;
-    --accent-foreground: #28634f;
+    /* Restrained, gentle accent for active navigation and hovers */
+    --accent: #f1f5f9;
+    --accent-foreground: #0f172a;
 
-    /* Restrained destructive alerts */
-    --destructive: #dc2626;
+    /* Soft, restrained destructive alerts */
+    --destructive: #ef4444;
     --destructive-foreground: #ffffff;
 
-    /* Subtle thin borders & inputs */
+    /* Delicate, airy borders and subtle input outlines */
     --border: #e2e8f0;
     --input: #e2e8f0;
-    --ring: #39836D;
+    --ring: #0f172a;
 
     /* 8px-based consistent border radius */
     --radius: 0.5rem;

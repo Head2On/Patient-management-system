@@ -67,7 +67,7 @@ function getRoleBadge(role: UserRole) {
   switch (role) {
     case "ADMIN":
       return (
-        <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-white font-medium">
+        <Badge variant="outline" className="border-indigo-200/80 bg-indigo-50/70 text-indigo-700 font-medium">
           Administrator
         </Badge>
       );

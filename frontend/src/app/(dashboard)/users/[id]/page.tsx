@@ -105,8 +105,8 @@ function getRoleBadge(role: UserRole) {
     case "ADMIN":
       return (
         <Badge
-          variant="default"
-          className="bg-purple-600 hover:bg-purple-700 text-white font-medium"
+          variant="outline"
+          className="border-indigo-200/80 bg-indigo-50/70 text-indigo-700 font-medium"
         >
           Administrator
         </Badge>
@@ -563,9 +563,9 @@ function UserDetailContent({
                 variant="outline"
                 size="sm"
                 onClick={handleOpenPrivileges}
-                className="gap-1.5 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+                className="gap-1.5"
               >
-                <Shield className="h-4 w-4" />
+                <Shield className="h-4 w-4 text-muted-foreground" />
                 Privileges
               </Button>
             )}
@@ -586,7 +586,7 @@ function UserDetailContent({
                 variant="outline"
                 size="sm"
                 onClick={() => setIsDeactivateOpen(true)}
-                className="gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/40"
+                className="gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50/50 border-rose-200"
               >
                 <Trash2 className="h-4 w-4" />
                 Deactivate
@@ -599,7 +599,7 @@ function UserDetailContent({
                 variant="outline"
                 size="sm"
                 onClick={() => setIsReactivateOpen(true)}
-                className="gap-1.5 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                className="gap-1.5"
               >
                 <RotateCcw className="h-4 w-4" />
                 Reactivate
@@ -612,13 +612,13 @@ function UserDetailContent({
       {/* Success Notification Banner */}
       {actionSuccess && (
         <Card
-          className="border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200"
+          className="border-emerald-200/70 bg-emerald-50/50 text-emerald-800"
           role="status"
           aria-live="polite"
         >
           <CardContent className="p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
               <p className="text-sm font-medium">{actionSuccess}</p>
             </div>
             <Button
@@ -836,7 +836,7 @@ function UserDetailContent({
                     variant="outline"
                     size="sm"
                     onClick={() => setIsReactivateOpen(true)}
-                    className="h-8 text-xs shrink-0 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                    className="h-8 text-xs shrink-0"
                   >
                     <RotateCcw className="h-3 w-3 mr-1" />
                     Reactivate
@@ -911,7 +911,7 @@ function UserDetailContent({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Shield className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <Shield className="h-5 w-5 text-primary" />
               Manage Staff Role & Privileges
             </DialogTitle>
             <DialogDescription>
@@ -999,7 +999,7 @@ function UserDetailContent({
               size="sm"
               onClick={handleSavePrivileges}
               disabled={adminUpdateMutation.isPending}
-              className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
+              className="gap-1.5"
             >
               {adminUpdateMutation.isPending ? (
                 <>
@@ -1080,7 +1080,7 @@ function UserDetailContent({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <RotateCcw className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <RotateCcw className="h-5 w-5 text-primary" />
               Reactivate Staff Account
             </DialogTitle>
             <DialogDescription>
@@ -1119,7 +1119,7 @@ function UserDetailContent({
               size="sm"
               onClick={handleConfirmReactivate}
               disabled={reactivateMutation.isPending}
-              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="gap-1.5"
             >
               {reactivateMutation.isPending ? (
                 <>
