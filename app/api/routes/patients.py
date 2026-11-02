@@ -1,13 +1,13 @@
 # TODO: Refactor to custom domain exceptions
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.db.database import get_db 
 from app.schemas.patient import PatientCreate, PatientResponse, PatientUpdate, PatientDeleteResponse, PaginationParams
 from app.services.patient import register_patient, get_patient_by_number, get_all_patients, updated_patient_by_number, soft_delete_patient, reactivate_patient
 from app.core.security import get_current_user, get_current_admin_or_receptionist_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -57,14 +57,28 @@ def get_patient(
 def list_all_patients(
     pagination: PaginationParams = Depends(),
     search: Optional[str] = None,
+    is_active: Optional[bool] = Query(True, description="Filter by active status"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if is_active is not True and current_user.role not in (UserRole.ADMIN, UserRole.RECEPTIONIST):
+        logger.warning(
+            "Unauthorized inactive patient list attempt actor=%s role=%s is_active=%s",
+            current_user.id,
+            current_user.role,
+            is_active
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view inactive patient records"
+        )
+
     offset = (pagination.page - 1) * pagination.limit
     patients = get_all_patients(
         db, offset=offset,
         limit=pagination.limit,
-        search=search
+        search=search,
+        is_active=is_active
     )
     return patients
 

@@ -43,8 +43,10 @@ def get_patient_by_number(db: Session, patient_number: str):
     return db.query(Patient).filter(Patient.patient_number == patient_number, Patient.is_active==True).first ()
 
 # Viwe all patients
-def get_all_patients(db: Session, offset: int = 0, limit: int = 10, search: Optional[str] = None):
-    query =  db.query(Patient).filter(Patient.is_active == True)
+def get_all_patients(db: Session, offset: int = 0, limit: int = 10, search: Optional[str] = None, is_active: Optional[bool] = True):
+    query = db.query(Patient)
+    if is_active is not None:
+        query = query.filter(Patient.is_active == is_active)
 
     if search:
         search_term = f"%{search}%"

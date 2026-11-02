@@ -41,10 +41,11 @@ export const patientKeys = {
  * @param params - Optional page, limit, and search query parameters.
  * @returns TanStack Query result containing PatientListItem[] array and request states.
  */
-export function usePatients(params?: GetPatientsParams) {
-  return useQuery<PatientListItem[], Error>({
+export function usePatients(params?: GetPatientsParams, options?: { enabled?: boolean }) {
+  return useQuery<PatientListItem[], ApiClientError>({
     queryKey: patientKeys.list(params),
     queryFn: () => getPatients(params),
+    enabled: options?.enabled ?? true,
   });
 }
 

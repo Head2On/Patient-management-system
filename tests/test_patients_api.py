@@ -271,3 +271,63 @@ def test_admin_create_receptionist_update_audit(client, auth_headers, receptioni
     assert update_res.json()["name"] == "Updated by Receptionist"
     assert update_res.json()["created_by_id"] == admin_user.id
     assert update_res.json()["updated_by_id"] == receptionist_user.id
+
+
+def test_admin_can_list_inactive_patients(client, auth_headers, sample_patient_data):
+    """Lifecycle Discoverability: Admin can list inactive patients via is_active=false"""
+    create_res = client.post("/api/v1/patients", json=sample_patient_data, headers=auth_headers)
+    patient_number = create_res.json()["patient_number"]
+
+    # Soft delete patient
+    del_res = client.delete(f"/api/v1/patients/{patient_number}", headers=auth_headers)
+    assert del_res.status_code == status.HTTP_200_OK
+
+    # Query active patients (default) - should NOT include deactivated patient
+    active_res = client.get("/api/v1/patients", headers=auth_headers)
+    assert active_res.status_code == status.HTTP_200_OK
+    active_numbers = [p["patient_number"] for p in active_res.json()]
+    assert patient_number not in active_numbers
+
+    # Query inactive patients with is_active=false - MUST include deactivated patient
+    inactive_res = client.get("/api/v1/patients?is_active=false", headers=auth_headers)
+    assert inactive_res.status_code == status.HTTP_200_OK
+    inactive_patients = inactive_res.json()
+    assert len(inactive_patients) >= 1
+    target = next((p for p in inactive_patients if p["patient_number"] == patient_number), None)
+    assert target is not None
+    assert target["is_active"] is False
+
+
+def test_receptionist_can_list_inactive_patients(client, auth_headers, receptionist_auth_headers, sample_patient_data):
+    """Lifecycle Discoverability: Receptionist can list inactive patients for reactivation workflow"""
+    create_res = client.post("/api/v1/patients", json=sample_patient_data, headers=auth_headers)
+    patient_number = create_res.json()["patient_number"]
+    client.delete(f"/api/v1/patients/{patient_number}", headers=auth_headers)
+
+    # Receptionist queries is_active=false
+    res = client.get("/api/v1/patients?is_active=false", headers=receptionist_auth_headers)
+    assert res.status_code == status.HTTP_200_OK
+    inactive_numbers = [p["patient_number"] for p in res.json()]
+    assert patient_number in inactive_numbers
+
+
+def test_doctor_cannot_list_inactive_patients(client, doctor_auth_headers):
+    """Security Test: Doctor role is forbidden from querying inactive patient records"""
+    res = client.get("/api/v1/patients?is_active=false", headers=doctor_auth_headers)
+    assert res.status_code == status.HTTP_403_FORBIDDEN
+    assert "Not authorized to view inactive patient records" in res.json()["detail"]
+
+
+def test_doctor_can_list_active_patients_default_and_explicit(client, doctor_auth_headers):
+    """Clinical Flow: Doctor can list active patients by default and with is_active=true"""
+    res_default = client.get("/api/v1/patients", headers=doctor_auth_headers)
+    assert res_default.status_code == status.HTTP_200_OK
+
+    res_explicit = client.get("/api/v1/patients?is_active=true", headers=doctor_auth_headers)
+    assert res_explicit.status_code == status.HTTP_200_OK
+
+
+def test_unauthenticated_cannot_list_inactive_patients(client):
+    """Security Test: Anonymous user cannot query inactive patients"""
+    res = client.get("/api/v1/patients?is_active=false")
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED

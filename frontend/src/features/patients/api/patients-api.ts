@@ -8,7 +8,9 @@ import type {
 } from "@/types/patient";
 import type { PagePaginationParams } from "@/types/api";
 
-export type GetPatientsParams = PagePaginationParams;
+export interface GetPatientsParams extends PagePaginationParams {
+  is_active?: boolean;
+}
 
 /**
  * Patient API Service
@@ -20,6 +22,7 @@ export async function getPatients(params?: GetPatientsParams): Promise<PatientLi
       page: params?.page,
       limit: params?.limit,
       search: params?.search,
+      is_active: params?.is_active,
     },
   });
 }

@@ -2,10 +2,21 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 .pytest_cache/
-MEMORY.md
+/docs
 
 # Environments
 .env
 .venv
 env/
 venv/
+
+# PyInstaller
+alembic.ini
+docker_commands.txt
+project_tree.txt
+desktop.ini
+MEMORY.md
+
+# text file
+rea_setup_plan.md
+frontend.txt
