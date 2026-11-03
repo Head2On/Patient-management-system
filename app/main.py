@@ -7,6 +7,7 @@ from app.api.routes.appointment import appointments_router
 from app.api.routes.provider import providers_router
 from app.api.routes.user import users_router
 from app.api.routes.healthy import health_router
+from app.api.routes.prescription import prescriptions_router
 from app.core.logging_config import setup_logging, get_logger
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,10 +69,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(health_router)
 app.include_router(patients_router, prefix="/api/v1/patients", tags=["patients"])
-app.include_router(appointments_router,prefix="/api/v1/appointments",tags=["appointments"])
-app.include_router(providers_router,prefix="/api/v1/providers",tags=["providers"])
-app.include_router(users_router,prefix="/api/v1/users",tags=["users"])
+app.include_router(appointments_router, prefix="/api/v1/appointments", tags=["appointments"])
+app.include_router(providers_router, prefix="/api/v1/providers", tags=["providers"])
+app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
+app.include_router(prescriptions_router, prefix="/api/v1/prescriptions", tags=["prescriptions"])
 
 @app.get("/")
 def read_root():
-    return {"message" : "Patient Management System API" }
+    return {"message": "Patient Management System API"}

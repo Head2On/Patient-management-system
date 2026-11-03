@@ -6,7 +6,7 @@ import os
 from alembic import context
 from app.db.database import Base
 from app.core.config import settings
-from app.models.patient import Patient
+from app.models import Patient, Appointment, Provider, User, Prescription
 
 config = context.config
 target_metadata = Base.metadata
@@ -57,7 +57,6 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
-
 
 if context.is_offline_mode():
     run_migrations_offline()

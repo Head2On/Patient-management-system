@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional,List
+from typing import Optional, List
 from datetime import datetime, timezone
 from enum import Enum
 from sqlalchemy import String, DateTime, ForeignKey, Text
@@ -59,9 +59,14 @@ class Appointment(Base):
         nullable=True
     )
 
-
     patient: Mapped["Patient"] = relationship(back_populates="appointments")
     provider: Mapped["Provider"] = relationship("Provider", back_populates="appointments")
+    prescription: Mapped[Optional["Prescription"]] = relationship(
+        "Prescription", 
+        back_populates="appointment", 
+        uselist=False, 
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"Appointment(id={self.id!r}, patient_id={self.patient_id!r}, status={self.status!r}, start_time={self.start_time!r})"

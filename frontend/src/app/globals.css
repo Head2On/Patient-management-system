@@ -83,3 +83,33 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* When printing the prescription slip, isolate the slip element */
+  body.printing-slip * {
+    visibility: hidden;
+  }
+
+  body.printing-slip #caredesk-prescription-slip,
+  body.printing-slip #caredesk-prescription-slip * {
+    visibility: visible;
+  }
+
+  body.printing-slip #caredesk-prescription-slip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

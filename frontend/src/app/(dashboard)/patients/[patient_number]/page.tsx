@@ -46,6 +46,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { isApiClientError } from "@/lib/api/errors";
+import { PatientPrescriptionsList } from "@/features/prescriptions/components/patient-prescriptions-list";
 
 interface PatientDetailPageProps {
   params: Promise<{ patient_number: string }>;
@@ -637,6 +638,9 @@ function PatientDetailContent({ patientNumber }: { patientNumber: string }) {
               </Card>
             </div>
           </div>
+
+          {/* Clinical Prescriptions & Encounter History */}
+          <PatientPrescriptionsList patientId={patient.id} />
         </div>
       )}
     </div>

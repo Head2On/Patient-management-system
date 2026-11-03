@@ -38,6 +38,7 @@ import { isApiClientError } from "@/lib/api/errors";
 import { PageHeaderConfig } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PrescriptionEncounterCard } from "@/features/prescriptions/components/prescription-encounter-card";
 import {
   Card,
   CardContent,
@@ -642,6 +643,9 @@ function AppointmentDetailContent({
               </div>
             </CardContent>
           </Card>
+
+          {/* Clinical Prescription (Rx) Encounter Record */}
+          <PrescriptionEncounterCard appointment={appointment} />
         </div>
 
         {/* Sidebar: Patient & Provider Info (Right col) */}
