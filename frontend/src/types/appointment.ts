@@ -14,9 +14,16 @@ export type AppointmentStatus =
   | "cancelled"
   | "no_show";
 
+export interface PatientAppointmentSummary {
+  id: number;
+  patient_number: string;
+  name: string;
+}
+
 export interface Appointment {
   id: number;
   patient_id: number;
+  patient: PatientAppointmentSummary;
   provider: ProviderPublic;
   start_time: string;
   end_time: string;

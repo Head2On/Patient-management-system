@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
   ArrowLeft,
   UserPlus,
@@ -29,45 +28,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { providerFormSchema, type ProviderFormData } from "@/features/providers/schemas";
 import type { ProviderCreateInput, PostType } from "@/types/provider";
 
-/**
- * Validation schema aligned with backend FastAPI model constraints:
- * - name: 2-300 chars
- * - specialization: 2-300 chars
- * - phone: 10-20 digits
- * - email: optional valid email address (converted to null if empty)
- * - post: strictly "MD" or "MS" enum
- */
-const providerFormSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, "Full name must be at least 2 characters")
-    .max(300, "Full name cannot exceed 300 characters"),
-  specialization: z
-    .string()
-    .trim()
-    .min(2, "Specialization must be at least 2 characters")
-    .max(300, "Specialization cannot exceed 300 characters"),
-  phone: z
-    .string()
-    .trim()
-    .min(10, "Phone number must be at least 10 digits")
-    .max(20, "Phone number cannot exceed 20 digits")
-    .regex(/^\d+$/, "Phone number must contain only digits"),
-  email: z
-    .string()
-    .trim()
-    .email("Please provide a valid email address")
-    .or(z.literal(""))
-    .optional(),
-  post: z.enum(["MD", "MS"], {
-    message: "Please select a qualification post (MD or MS)",
-  }),
-});
-
-type ProviderFormData = z.infer<typeof providerFormSchema>;
 
 const emptySubscribe = () => () => {};
 

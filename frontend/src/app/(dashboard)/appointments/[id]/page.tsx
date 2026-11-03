@@ -33,6 +33,7 @@ import {
   formatAppointmentDuration,
   CLINIC_TIMEZONE,
 } from "@/lib/datetime";
+import { formatDoctorName } from "@/lib/utils";
 import { isApiClientError } from "@/lib/api/errors";
 import { PageHeaderConfig } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -485,11 +486,11 @@ function AppointmentDetailContent({
                         <p>
                           Are you sure you want to cancel this appointment for{" "}
                           <span className="font-semibold text-foreground">
-                            Patient #{appointment.patient_id}
+                            {appointment.patient?.name ? `${appointment.patient.name} (${appointment.patient.patient_number})` : `Patient #${appointment.patient_id}`}
                           </span>{" "}
                           with{" "}
                           <span className="font-semibold text-foreground">
-                            Dr. {appointment.provider.name}
+                            {formatDoctorName(appointment.provider.name)}
                           </span>
                           ?
                         </p>
@@ -654,20 +655,54 @@ function AppointmentDetailContent({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="p-3 rounded-lg border border-border bg-card space-y-1">
-                <span className="text-xs text-muted-foreground">Patient Identifier</span>
-                <p className="text-base font-bold text-foreground font-mono">
-                  Patient #{appointment.patient_id}
-                </p>
-              </div>
+              {appointment.patient ? (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-foreground">
+                        {appointment.patient.name}
+                      </h4>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {appointment.patient.patient_number}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Database ID #{appointment.patient.id}
+                    </p>
+                  </div>
 
-              <Button asChild variant="outline" size="sm" className="w-full text-xs">
-                <Link href="/patients">
-                  <UserIcon className="h-3.5 w-3.5 mr-1.5" />
-                  View in Patient Directory
-                  <ChevronRight className="h-3.5 w-3.5 ml-auto" />
-                </Link>
-              </Button>
+                  <Separator />
+
+                  <Button asChild variant="outline" size="sm" className="w-full text-xs">
+                    <Link
+                      href={`/patients/${encodeURIComponent(
+                        appointment.patient.patient_number
+                      )}`}
+                    >
+                      <UserIcon className="h-3.5 w-3.5 mr-1.5" />
+                      View Full Patient Profile
+                      <ChevronRight className="h-3.5 w-3.5 ml-auto" />
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="p-3 rounded-lg border border-border bg-card space-y-1">
+                    <span className="text-xs text-muted-foreground">Patient Identifier</span>
+                    <p className="text-base font-bold text-foreground font-mono">
+                      Patient #{appointment.patient_id}
+                    </p>
+                  </div>
+
+                  <Button asChild variant="outline" size="sm" className="w-full text-xs">
+                    <Link href="/patients">
+                      <UserIcon className="h-3.5 w-3.5 mr-1.5" />
+                      View in Patient Directory
+                      <ChevronRight className="h-3.5 w-3.5 ml-auto" />
+                    </Link>
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -683,7 +718,7 @@ function AppointmentDetailContent({
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-foreground">
-                    Dr. {appointment.provider.name}
+                    {formatDoctorName(appointment.provider.name)}
                   </h4>
                   <Badge variant="outline" className="font-mono text-xs">
                     {appointment.provider.doc_number}

@@ -28,6 +28,15 @@ export interface PatientDetail extends PatientListItem {
   aadhaar: string | null;
 }
 
+export interface PatientShort {
+  id: number;
+  patient_number: string;
+  name: string;
+  phone: string;
+  gender: string;
+  dob: string;
+}
+
 /**
  * Alias for PatientListItem to maintain backwards compatibility
  */

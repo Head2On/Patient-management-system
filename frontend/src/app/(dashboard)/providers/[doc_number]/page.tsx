@@ -44,6 +44,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { isApiClientError } from "@/lib/api/errors";
+import { formatDoctorName } from "@/lib/utils";
 
 interface ProviderDetailPageProps {
   params: Promise<{ doc_number: string }>;
@@ -265,7 +266,7 @@ function ProviderDetailContent({ docNumber }: { docNumber: string }) {
                         <DialogDescription>
                           Are you sure you want to deactivate{" "}
                           <span className="font-semibold text-slate-900">
-                            Dr. {provider.name}
+                            {formatDoctorName(provider.name)}
                           </span>{" "}
                           (
                           <span className="font-mono text-slate-800">
@@ -365,7 +366,7 @@ function ProviderDetailContent({ docNumber }: { docNumber: string }) {
                         <DialogDescription>
                           Are you sure you want to restore active status for{" "}
                           <span className="font-semibold text-slate-900">
-                            Dr. {provider.name}
+                            {formatDoctorName(provider.name)}
                           </span>{" "}
                           (
                           <span className="font-mono text-slate-800">

@@ -1,5 +1,5 @@
 from typing import Optional,List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.appointment import Appointment, AppointmentStatus
@@ -17,7 +17,7 @@ class AppointmentServices:
     def create_appointment(self, appointment_data: AppointmentCreate, actor: Optional[User] = None) -> Appointment:
         # 1. Validate patient (existing code - keep)
 
-        patient = self.db.query(Patient).filter(Patient.id == appointment_data.patient_id).first()
+        patient = self.db.query(Patient).filter(Patient.id == appointment_data.patient_id).with_for_update().first()
         if not patient:
             raise ValueError(f"Patient with id {appointment_data.patient_id} not found")
         if not patient.is_active:
@@ -27,7 +27,7 @@ class AppointmentServices:
 
         provider = self.db.query(Provider).filter(
             Provider.doc_number == appointment_data.provider_id  # doc_number, not id!
-        ).first()
+        ).with_for_update().first()
         if not provider:
             raise ValueError(f"Provider with doc_number {appointment_data.provider_id} not found")
         if not provider.is_active:
@@ -74,21 +74,22 @@ class AppointmentServices:
             self.db.add(new_appointment)
             self.db.commit()
             self.db.refresh(new_appointment)
+            return self.get_appointment_by_id(new_appointment.id)
         except SQLAlchemyError as e:
             self.db.rollback()
             raise ValueError(f"Database error: {str(e)}")
         
         return new_appointment
 
-    def get_appointment_by_id(self,appointment_id:int) -> Optional[Appointment]:
-        return self.db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    def get_appointment_by_id(self, appointment_id: int) -> Optional[Appointment]:
+        return self.db.query(Appointment).options(joinedload(Appointment.patient), joinedload(Appointment.provider)).filter(Appointment.id == appointment_id).first()
 
     def get_patient_appointments(self, patient_id:int, status:Optional[AppointmentStatus] = None) -> List[Appointment]:
         patient = self.db.query(Patient).filter(Patient.id == patient_id).first()
         if not patient or not patient.is_active:
             return []
         
-        query = self.db.query(Appointment).filter(Appointment.patient_id == patient_id)
+        query = self.db.query(Appointment).options(joinedload(Appointment.patient), joinedload(Appointment.provider)).filter(Appointment.patient_id == patient_id)
         if status:
             query = query.filter(Appointment.status == status)
         return query.all()
@@ -99,7 +100,7 @@ class AppointmentServices:
     
     def get_all_appointments(self, skip: int = 0, limit: int = 100, 
                          provider_id: Optional[str] = None) -> List[Appointment]:
-        query = self.db.query(Appointment)
+        query = self.db.query(Appointment).options(joinedload(Appointment.patient), joinedload(Appointment.provider))
         
         if provider_id:
             provider = self._get_provider_by_doc_number(provider_id)
@@ -115,7 +116,7 @@ class AppointmentServices:
         if not provider:
             return []
         
-        query = self.db.query(Appointment).filter(Appointment.provider_id == provider.id)
+        query = self.db.query(Appointment).options(joinedload(Appointment.patient), joinedload(Appointment.provider)).filter(Appointment.provider_id == provider.id)
         if status:
             query = query.filter(Appointment.status == status)
         return query.all()
@@ -236,6 +237,7 @@ class AppointmentServices:
         try:
             self.db.commit()
             self.db.refresh(appointment)
+            return self.get_appointment_by_id(appointment.id)
         except SQLAlchemyError as e:
             self.db.rollback()
             raise ValueError(f"Database error: {str(e)}")
@@ -267,6 +269,7 @@ class AppointmentServices:
         try:
             self.db.commit()
             self.db.refresh(appointment)
+            return self.get_appointment_by_id(appointment.id)
         except SQLAlchemyError as e:
             self.db.rollback()
             raise ValueError(f"Database error: {str(e)}")

@@ -33,6 +33,7 @@ import {
   formatAppointmentDuration,
   CLINIC_TIMEZONE,
 } from "@/lib/datetime";
+import { formatDoctorName } from "@/lib/utils";
 import { isApiClientError } from "@/lib/api/errors";
 import { PageHeaderConfig } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -532,7 +533,7 @@ function AppointmentEditContent({
                 </option>
                 {activeProviders.map((provider) => (
                   <option key={provider.id} value={provider.doc_number}>
-                    Dr. {provider.name} ({provider.post} •{" "}
+                    {formatDoctorName(provider.name)} ({provider.post} •{" "}
                     {provider.specialization}) — [{provider.doc_number}]
                   </option>
                 ))}
@@ -549,7 +550,7 @@ function AppointmentEditContent({
               <div className="p-3 rounded-lg border border-border bg-card text-xs space-y-1">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-foreground">
-                    Dr. {selectedProvider.name}
+                    {formatDoctorName(selectedProvider.name)}
                   </span>
                   <Badge variant="outline" className="font-mono text-[10px]">
                     {selectedProvider.doc_number}

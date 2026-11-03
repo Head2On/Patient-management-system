@@ -27,6 +27,7 @@ import { useCreateAppointment } from "@/features/appointments/hooks/use-appointm
 import type { AppointmentCreateInput } from "@/types/appointment";
 import type { PatientListItem } from "@/types/patient";
 import { CLINIC_TIMEZONE } from "@/lib/datetime";
+import { formatDoctorName } from "@/lib/utils";
 import { PageHeaderConfig } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -583,7 +584,7 @@ export default function NewAppointmentPage() {
                 </option>
                 {activeProviders.map((provider) => (
                   <option key={provider.id} value={provider.doc_number}>
-                    Dr. {provider.name} ({provider.post} •{" "}
+                    {formatDoctorName(provider.name)} ({provider.post} •{" "}
                     {provider.specialization}) — [{provider.doc_number}]
                   </option>
                 ))}
@@ -600,7 +601,7 @@ export default function NewAppointmentPage() {
               <div className="p-3 rounded-lg border border-border bg-card text-xs space-y-1">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-foreground">
-                    Dr. {selectedProvider.name}
+                    {formatDoctorName(selectedProvider.name)}
                   </span>
                   <Badge variant="outline" className="font-mono text-[10px]">
                     {selectedProvider.doc_number}

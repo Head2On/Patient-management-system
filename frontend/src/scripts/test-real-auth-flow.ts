@@ -252,3 +252,5 @@ runRealAuthIntegrationTest().catch((err) => {
   console.error("\n❌ Real Auth Test Failed:", err);
   process.exit(1);
 });
+
+export {};

@@ -308,6 +308,7 @@ export default function PatientsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-[50px] text-center">#</TableHead>
                   <TableHead className="w-[180px]">Patient</TableHead>
                   <TableHead className="w-[130px]">Patient ID</TableHead>
                   <TableHead className="w-[130px]">Phone</TableHead>
@@ -322,6 +323,9 @@ export default function PatientsPage() {
                 {isLoading &&
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
+                      <TableCell className="text-center">
+                        <div className="h-4 w-5 bg-slate-200 dark:bg-slate-700 animate-pulse rounded mx-auto" />
+                      </TableCell>
                       <TableCell>
                         <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 animate-pulse rounded" />
                       </TableCell>
@@ -352,7 +356,7 @@ export default function PatientsPage() {
                   debouncedSearch.length > 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="h-48 text-center text-muted-foreground"
                       >
                         <div className="flex flex-col items-center justify-center space-y-2">
@@ -397,7 +401,7 @@ export default function PatientsPage() {
                   debouncedSearch.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="h-48 text-center text-muted-foreground"
                       >
                         <div className="flex flex-col items-center justify-center space-y-2">
@@ -445,66 +449,72 @@ export default function PatientsPage() {
                 {!isLoading &&
                   patients &&
                   patients.length > 0 &&
-                  patients.map((patient) => (
-                    <TableRow
-                      key={patient.patient_number}
-                      className="hover:bg-muted/50 transition-colors"
-                    >
-                      <TableCell className="font-medium text-foreground">
-                        <Link
-                          href={`/patients/${patient.patient_number}`}
-                          className="hover:text-primary hover:underline transition-colors font-medium text-foreground"
-                        >
-                          {patient.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {patient.patient_number}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground font-mono">
-                        {patient.phone}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {patient.gender}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {patient.dob}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={patient.is_active ? "success" : "destructive"}
-                        >
-                          {patient.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button asChild variant="ghost" size="sm" className="h-8 text-xs">
-                            <Link href={`/patients/${patient.patient_number}`}>
-                              View
-                            </Link>
-                          </Button>
-
-                          {/* Direct Reactivation Action for Inactive Records */}
-                          {!patient.is_active && canManageLifecycle && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedPatientForReactivation(patient);
-                                setReactivateError(null);
-                              }}
-                              className="h-8 text-xs gap-1"
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                              Reactivate
+                  patients.map((patient, index) => {
+                    const serialNumber = (page - 1) * PAGE_SIZE + index + 1;
+                    return (
+                      <TableRow
+                        key={patient.patient_number}
+                        className="hover:bg-muted/50 transition-colors"
+                      >
+                        <TableCell className="text-center font-mono text-xs text-muted-foreground font-medium">
+                          {serialNumber}
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground">
+                          <Link
+                            href={`/patients/${patient.patient_number}`}
+                            className="hover:text-primary hover:underline transition-colors font-medium text-foreground"
+                          >
+                            {patient.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {patient.patient_number}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground font-mono">
+                          {patient.phone}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {patient.gender}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {patient.dob}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={patient.is_active ? "success" : "destructive"}
+                          >
+                            {patient.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button asChild variant="ghost" size="sm" className="h-8 text-xs">
+                              <Link href={`/patients/${patient.patient_number}`}>
+                                View
+                              </Link>
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+
+                            {/* Direct Reactivation Action for Inactive Records */}
+                            {!patient.is_active && canManageLifecycle && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPatientForReactivation(patient);
+                                  setReactivateError(null);
+                                }}
+                                className="h-8 text-xs gap-1"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                Reactivate
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
               </TableBody>
             </Table>
           </div>
@@ -515,6 +525,15 @@ export default function PatientsPage() {
               <div className="text-xs text-muted-foreground">
                 Page{" "}
                 <span className="font-semibold text-foreground">{page}</span>
+                <span className="text-muted-foreground/60 mx-1.5">·</span>
+                Showing records{" "}
+                <span className="font-medium text-foreground">
+                  {(page - 1) * PAGE_SIZE + 1}
+                </span>
+                –
+                <span className="font-medium text-foreground">
+                  {(page - 1) * PAGE_SIZE + patients.length}
+                </span>
                 {statusTab === "inactive" && " (Inactive Archive)"}
               </div>
               <div className="flex items-center space-x-2">

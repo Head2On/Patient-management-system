@@ -24,6 +24,7 @@ import {
   formatClinicDate,
   formatClinicTimeRange,
 } from "@/lib/datetime";
+import { formatDoctorName } from "@/lib/utils";
 import { PageHeaderConfig } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,6 +146,8 @@ export default function AppointmentsPage() {
           appt.provider.doc_number.toLowerCase().includes(query) ||
           appt.provider.specialization.toLowerCase().includes(query) ||
           appt.reason_for_visit.toLowerCase().includes(query) ||
+          (appt.patient?.name && appt.patient.name.toLowerCase().includes(query)) ||
+          (appt.patient?.patient_number && appt.patient.patient_number.toLowerCase().includes(query)) ||
           String(appt.patient_id).includes(query) ||
           String(appt.id).includes(query)
       );
@@ -420,14 +423,36 @@ export default function AppointmentsPage() {
                       </div>
                     </TableCell>
 
-                    {/* Patient ID */}
+                    {/* Patient */}
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <UserIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-xs font-medium">
-                          Patient #{appt.patient_id}
-                        </span>
-                      </div>
+                      {appt.patient ? (
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-semibold text-foreground block truncate max-w-[170px]">
+                            {appt.patient.name}
+                          </span>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span className="font-mono text-slate-700 dark:text-slate-300">
+                              {appt.patient.patient_number}
+                            </span>
+                            <span>·</span>
+                            <Link
+                              href={`/patients/${encodeURIComponent(
+                                appt.patient.patient_number
+                              )}`}
+                              className="hover:text-primary hover:underline font-medium"
+                            >
+                              Profile
+                            </Link>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <UserIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs font-medium">
+                            Patient #{appt.patient_id}
+                          </span>
+                        </div>
+                      )}
                     </TableCell>
 
                     {/* Provider */}
@@ -440,7 +465,7 @@ export default function AppointmentsPage() {
                             )}`}
                             className="text-xs font-semibold text-foreground hover:text-primary hover:underline"
                           >
-                            Dr. {appt.provider.name}
+                            {formatDoctorName(appt.provider.name)}
                           </Link>
                           <Badge
                             variant="outline"

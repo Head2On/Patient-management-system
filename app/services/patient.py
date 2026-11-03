@@ -13,6 +13,12 @@ def register_patient(db: Session, patient_data: PatientCreate, actor: Optional[U
     next_id = result.scalar()
     
     patient_number = f"PDC-{next_id:06d}"
+    aadhaar_val = patient_data.aadhaar
+    if isinstance(aadhaar_val, str):
+        aadhaar_val = aadhaar_val.strip()
+        if not aadhaar_val:
+            aadhaar_val = None
+
     db_patient = Patient(
         id=next_id,
         patient_number=patient_number,
@@ -22,7 +28,7 @@ def register_patient(db: Session, patient_data: PatientCreate, actor: Optional[U
         gender=patient_data.gender,
         address=patient_data.address,
         chief_complaint=patient_data.chief_complaint,
-        aadhaar=patient_data.aadhaar,
+        aadhaar=aadhaar_val,
         created_by_id=actor.id if actor else None,
         updated_by_id=actor.id if actor else None
     )

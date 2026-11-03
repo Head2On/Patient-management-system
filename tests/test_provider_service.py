@@ -77,17 +77,7 @@ class TestProviderServices:
     def test_create_provider_doc_number_with_short_phone(self, db_session):
         """Test doc_number pads phone if less than 4 digits"""
         service = ProviderServices(db_session)
-        
-        provider_data = ProviderCreate(
-            name="Sam Lee",
-            specialization="Orthopedics",
-            phone="123",  # Only 3 digits
-            email="sam@hospital.com",
-            post=PostType.MS
-        )
-        
-        provider = service.create_provider(provider_data)
-        assert provider.doc_number == "SL0123"  # Padded with zero
+        assert service._generate_doc_number("Sam Lee", "123") == "SL0123"  # Padded with zero
     
     def test_create_provider_without_email(self, db_session):
         """Test creating provider without email (optional field)"""
